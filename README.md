@@ -145,3 +145,12 @@ pnpm run dev
 *   Open the Dashboard at [https://solsticedash.vercel.app](https://solsticedash.vercel.app) (or locally at `http://localhost:3000`).
 *   Click **Test Transaction** to submit a standard transfer directly to the Solana Devnet RPC cluster.
 *   Click **Simulate Expired Blockhash** to execute our fault injection simulation. The dashboard will show the transaction fail, register the poller timeout, schedule a BullMQ retry, and succeed on-chain with a fresh blockhash!
+
+### 6. Unit Tests
+The deterministic core of the retry engine is covered by a Vitest suite (failure classification, AI fallback rules, the AI decision schema and safeguards, the lifecycle state machine, Jito bundle validation, tip-manager metrics, and backoff math):
+```bash
+cd apps/backend
+pnpm test          # runs the full suite once
+pnpm test:watch    # watch mode
+```
+These tests run fully offline — no RPC, Redis, or Gemini credentials required.
