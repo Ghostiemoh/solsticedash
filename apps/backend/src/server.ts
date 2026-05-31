@@ -38,6 +38,14 @@ async function bootstrap(): Promise<void> {
     credentials: true,
   });
 
+  // Support Private Network Access (PNA) preflight checks in Chrome
+  app.addHook('onSend', async (request, reply, payload) => {
+    if (request.headers['access-control-request-private-network'] === 'true') {
+      reply.header('Access-Control-Allow-Private-Network', 'true');
+    }
+    return payload;
+  });
+
   await app.register(websocket, {
     options: {
       maxPayload: 1048576,
