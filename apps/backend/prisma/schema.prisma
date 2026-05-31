@@ -1,0 +1,153 @@
+// ============================================================
+// Prisma Schema — Solstice Database
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// ─── Transaction Lifecycle ─────────────────────────────────
+
+model Transaction {
+  id                 String    @id @default(cuid())
+  signature          String?   @unique
+  status             String    @default("CREATED")
+  createdAt          DateTime  @default(now())
+  simulatedAt        DateTime?
+  signedAt           DateTime?
+  bundledAt          DateTime?
+  submittedAt        DateTime?
+  processedAt        DateTime?
+  confirmedAt        DateTime?
+  finalizedAt        DateTime?
+  failedAt           DateTime?
+  abandonedAt        DateTime?
+  slot               Int?
+  leader             String?
+  bundleId           String?
+  tipLamports        Int?
+  computeUnitsConsumed Int?
+  computeUnitLimit   Int?
+  computeUnitPrice   Int?
+  retryCount         Int       @default(0)
+  lastError          String?
+  failureCategory    String?
+  instructions       Json?
+  metadata           Json?
+
+  retryAttempts      RetryAttempt[]
+  aiDecisions        AiDecision[]
+  bundle             Bundle?        @relation(fields: [bundleId], references: [id])
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([slot])
+  @@map("transactions")
+}
+
+// ─── Bundles ───────────────────────────────────────────────
+
+model Bundle {
+  id               String    @id @default(cuid())
+  jitoBundleId     String?   @unique
+  status           String    @default("CREATED")
+  tipLamports      Int
+  tipAccount       String
+  leader           String?
+  slot             Int?
+  sentAt           DateTime  @default(now())
+  landedAt         DateTime?
+  rejectedAt       DateTime?
+  rejectionReason  String?
+  retryOfId        String?
+
+  transactions     Transaction[]
+
+  @@index([status])
+  @@index([sentAt])
+  @@map("bundles")
+}
+
+// ─── Retry Attempts ────────────────────────────────────────
+
+model RetryAttempt {
+  id              String    @id @default(cuid())
+  transactionId   String
+  attempt         Int
+  failureCategory String
+  tipLamports     Int
+  delayMs         Int
+  outcome         String    @default("PENDING")
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+  errorMessage    String?
+  aiDecisionId    String?
+
+  transaction     Transaction @relation(fields: [transactionId], references: [id])
+
+  @@index([transactionId])
+  @@map("retry_attempts")
+}
+
+// ─── AI Decisions ──────────────────────────────────────────
+
+model AiDecision {
+  id              String    @id @default(cuid())
+  transactionId   String
+  context         Json
+  decision        Json
+  confidence      Float
+  reasoning       String
+  modelUsed       String
+  latencyMs       Int
+  wasOverridden   Boolean   @default(false)
+  overrideReason  String?
+  outcome         String    @default("PENDING")
+  timestamp       DateTime  @default(now())
+
+  transaction     Transaction @relation(fields: [transactionId], references: [id])
+
+  @@index([transactionId])
+  @@index([timestamp])
+  @@map("ai_decisions")
+}
+
+// ─── Metric Snapshots ──────────────────────────────────────
+
+model MetricSnapshot {
+  id              String    @id @default(cuid())
+  timestamp       DateTime  @default(now())
+  slotRate        Float?
+  skipRate        Float?
+  congestionLevel String?
+  p50PriorityFee  Int?
+  p90PriorityFee  Int?
+  bundleLandingRate Float?
+  avgTipLanded    Int?
+  avgRpcLatencyMs Int?
+  streamStatus    String?
+  activeRetries   Int?
+
+  @@index([timestamp])
+  @@map("metric_snapshots")
+}
+
+// ─── Leader Slots ──────────────────────────────────────────
+
+model LeaderSlot {
+  id             String    @id @default(cuid())
+  slot           Int       @unique
+  leader         String
+  isJitoLeader   Boolean   @default(false)
+  epoch          Int
+  recordedAt     DateTime  @default(now())
+
+  @@index([leader])
+  @@index([epoch])
+  @@map("leader_slots")
+}

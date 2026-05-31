@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+.next/
+out/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Turbo
+.turbo/
+
+# Prisma
+apps/backend/prisma/migrations/
+
+# Docker volumes
+docker/data/
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+
+# Generated
+apps/backend/src/generated/
