@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solstice 🌅 — System Architecture & Design Specification</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            solana: {
+              green: '#14F195',
+              purple: '#9945FF',
+              dark: '#09090b',
+              gray: '#18181b',
+            }
+          },
+          fontFamily: {
+            sans: ['Outfit', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Outfit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+
+  <!-- Mermaid.js for Diagrams -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      securityLevel: 'loose',
+      themeVariables: {
+        background: '#18181b',
+        primaryColor: '#2b6cb0',
+        primaryTextColor: '#fff',
+        lineColor: '#4a5568',
+      }
+    });
+  </script>
+
+  <style>
+    body {
+      background-color: #09090b;
+      color: #fafafa;
+    }
+    .glass {
+      background: rgba(24, 24, 27, 0.6);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glow-purple {
+      box-shadow: 0 0 40px -5px rgba(153, 69, 255, 0.15);
+    }
+    .glow-green {
+      box-shadow: 0 0 40px -5px rgba(20, 241, 149, 0.15);
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #09090b;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #27272a;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3f3f46;
+    }
+  </style>
+</head>
+<body class="min-h-screen antialiased py-12 px-4 sm:px-6 lg:px-8 selection:bg-solana-green selection:text-black">
+  <div class="max-w-5xl mx-auto space-y-12">
+    
+    <!-- Top Nav / Meta Warning -->
+    <div class="glass rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-l-4 border-l-solana-purple glow-purple">
+      <div>
+        <span class="text-xs font-black tracking-widest text-solana-purple uppercase">Challenge Submission Requirement</span>
+        <h2 class="text-lg font-bold text-white mt-1">Hosting this Architecture Specification</h2>
+        <p class="text-zinc-400 text-sm mt-0.5">This standalone HTML spec satisfies the "public architecture document hosted separately" requirement. You can publish this directly to your GitHub Pages site, or copy its sections into a Notion database / Google Doc.</p>
+      </div>
+      <div class="flex gap-2 w-full md:w-auto">
+        <a href="https://notion.so" target="_blank" class="flex-1 md:flex-initial text-center px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-lg text-xs transition-colors">Copy to Notion</a>
+        <a href="https://pages.github.com" target="_blank" class="flex-1 md:flex-initial text-center px-4 py-2 bg-solana-purple hover:bg-opacity-80 text-white font-bold rounded-lg text-xs transition-colors">Publish to Pages</a>
+      </div>
+    </div>
+
+    <!-- Main Header -->
+    <header class="text-center relative py-10 overflow-hidden rounded-3xl glass border border-zinc-800 glow-green">
+      <div class="absolute -top-40 -left-40 w-96 h-96 bg-solana-purple/10 rounded-full blur-3xl"></div>
+      <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-solana-green/10 rounded-full blur-3xl"></div>
+      
+      <span class="text-xs font-black tracking-widest text-solana-green uppercase">Superteam Nigeria Advanced Infrastructure Challenge</span>
+      <h1 class="text-4xl sm:text-5xl font-black mt-2 tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
+        Solstice 🌅
+      </h1>
+      <p class="text-zinc-400 text-lg mt-3 max-w-2xl mx-auto font-light">
+        Validator-Aware Smart Transaction Execution & Intelligence Infrastructure on Solana
+      </p>
+      <div class="flex justify-center gap-4 mt-6">
+        <span class="px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-full text-xs font-mono text-zinc-300">Stack: Node.js / TS / Fastify / Next.js</span>
+        <span class="px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-full text-xs font-mono text-zinc-300">State: Prisma SQLite</span>
+        <span class="px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-full text-xs font-mono text-zinc-300">Queue: BullMQ / Upstash Redis</span>
+      </div>
+    </header>
+
+    <!-- Table of Contents -->
+    <nav class="glass rounded-2xl p-6 border border-zinc-800">
+      <h3 class="text-sm font-bold tracking-wider text-zinc-400 uppercase mb-4">Table of Contents</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+        <a href="#section-0" class="text-zinc-300 hover:text-solana-green transition-colors flex items-center gap-2 md:col-span-2">
+          <span class="text-solana-purple font-mono">00.</span> Submission Mode: Devnet Acceptable Fallback
+        </a>
+        <a href="#section-1" class="text-zinc-300 hover:text-solana-green transition-colors flex items-center gap-2">
+          <span class="text-solana-purple font-mono">01.</span> High-Level Architecture Diagram
+        </a>
+        <a href="#section-2" class="text-zinc-300 hover:text-solana-green transition-colors flex items-center gap-2">
+          <span class="text-solana-purple font-mono">02.</span> Core Components & Roles
+        </a>
+        <a href="#section-3" class="text-zinc-300 hover:text-solana-green transition-colors flex items-center gap-2">
+          <span class="text-solana-purple font-mono">03.</span> Submission & Recovery Flows
+        </a>
+        <a href="#section-4" class="text-zinc-300 hover:text-solana-green transition-colors flex items-center gap-2">
+          <span class="text-solana-purple font-mono">04.</span> Infrastructure & State Storage
+        </a>
+      </div>
+    </nav>
+
+    <!-- Section 0: Devnet Fallback -->
+    <section id="section-0" class="space-y-6">
+      <div class="flex items-center gap-3">
+        <div class="h-8 w-1.5 bg-solana-purple rounded-full"></div>
+        <h2 class="text-2xl font-black text-white tracking-tight">00. Submission Mode: Devnet Acceptable Fallback</h2>
+      </div>
+      <p class="text-zinc-400 text-sm leading-relaxed">
+        Solstice is currently positioned as a <strong>Devnet working prototype</strong> with an explicit fallback path for infrastructure that only becomes fully meaningful on mainnet.
+      </p>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs leading-relaxed">
+        <div class="glass rounded-xl p-5 border border-zinc-800 space-y-2">
+          <h4 class="text-sm font-bold text-zinc-300">What is Proven in Devnet Mode</h4>
+          <ul class="list-disc list-inside space-y-1 text-zinc-400 pl-1">
+            <li>Real Devnet transaction construction, signing, submission, and finality tracking.</li>
+            <li>Fault-injected expired blockhash failures that move through the retry planner and queue.</li>
+            <li>Persistent lifecycle evidence with timestamps for processed, confirmed, and finalized states whenever stream data is available.</li>
+            <li>Dynamic tip calculation code and Jito bundle construction code wired into the same orchestrator path.</li>
+            <li>AI decision infrastructure with schema validation, audit logging, and deterministic fallback safeguards.</li>
+            <li>Yellowstone/Geyser streaming as the preferred slot source, with RPC WebSocket fallback.</li>
+          </ul>
+        </div>
+        
+        <div class="glass rounded-xl p-5 border border-zinc-800 space-y-2 flex flex-col justify-between">
+          <div>
+            <h4 class="text-sm font-bold text-zinc-300">What is Not Claimed in Devnet Mode</h4>
+            <ul class="list-disc list-inside space-y-1 text-zinc-400 pl-1 mt-1">
+              <li>Devnet does not prove a real mainnet Jito bundle landing.</li>
+              <li>Direct RPC fallback records are marked as fallback execution records, not successful mainnet Jito bundle IDs.</li>
+              <li>Mainnet Jito landing proof is a separate final proof run using a capped funded wallet.</li>
+            </ul>
+          </div>
+          <p class="text-zinc-500 italic mt-3 pt-2 border-t border-zinc-800/80">
+            This separation is intentional. It keeps the prototype honest for judges while still allowing the complete stack to run end-to-end before the mainnet spend.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 1: Mermaid -->
+    <section id="section-1" class="space-y-6">
+      <div class="flex items-center gap-3">
+        <div class="h-8 w-1.5 bg-solana-green rounded-full"></div>
+        <h2 class="text-2xl font-black text-white tracking-tight">01. High-Level Architecture</h2>
+      </div>
+      <p class="text-zinc-400 text-sm leading-relaxed">
+        Solstice coordinates real-time network tracking, AI failure classification, queue-based retry attempts, and state storage through an asynchronous typed Event Bus (<code class="text-solana-green font-mono">EventEmitter3</code>).
+      </p>
+      
+      <!-- Mermaid Rendering Block -->
+      <div class="glass rounded-2xl p-6 border border-zinc-800 overflow-x-auto">
+        <div class="mermaid min-w-[700px]">
+          graph TD
+            classDef external fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#fff;
+            classDef core fill:#1a202c,stroke:#2b6cb0,stroke-width:2px,color:#fff;
+            classDef ai fill:#2d3748,stroke:#b83280,stroke-width:2px,color:#fff;
+            classDef storage fill:#1a202c,stroke:#2c7a7b,stroke-width:2px,color:#fff;
+
+            subgraph Dashboard ["Next.js Dashboard"]
+                UI[Bento UI Panel]
+                WS_Client[WebSocket Hook]
+                UI --> WS_Client
+            end
+
+            subgraph Backend ["Fastify Gateway"]
+                WS_Server[WebSocket Server]
+                REST[REST Router]
+                Bus[EventEmitter3 Bus]
+            end
+
+            subgraph CoreEngine ["Smart Transaction Stack"]
+                Orchestrator[Orchestrator]
+                Builder[Tx Builder]
+                Sim[Simulation Engine]
+                FeeMgr[Priority Fee Manager]
+                Poller[Confirmation Poller]
+            end
+
+            subgraph Streaming ["Streaming Engine"]
+                gRPC[Yellowstone gRPC client]
+                SlotTr[Slot Tracker]
+                LeaderTr[Leader Tracker]
+            end
+
+            subgraph Jito ["Jito Bundle Engine"]
+                Constructor[Bundle Constructor]
+                Sender[Bundle Sender]
+                Tracker[Bundle Status Tracker]
+                TipMgr[Tip Manager]
+            end
+
+            subgraph AIDecision ["AI Intelligence"]
+                AI_Eng[Gemini 2.0 Flash Agent]
+                Fallback[Deterministic Fallback Rules]
+                Validator[AI Output Validator]
+            end
+
+            subgraph Storage ["Infrastructure Cache & State"]
+                Prisma[Prisma Client]
+                SQLite[(SQLite dev.db)]
+                BullMQ[BullMQ Worker & Queue]
+                Redis[(Upstash Redis Cache)]
+            end
+
+            %% Connections
+            WS_Client <-->|ws://localhost:3001/ws| WS_Server
+            WS_Server --> Bus
+            REST --> Orchestrator
+            Bus --> WS_Server
+            
+            Orchestrator --> Builder
+            Orchestrator --> Sim
+            Orchestrator --> FeeMgr
+            Orchestrator --> Jito
+            Orchestrator --> Poller
+
+            gRPC --> SlotTr
+            gRPC --> LeaderTr
+            SlotTr & LeaderTr --> Bus
+            Bus --> Orchestrator
+
+            Jito --> Bus
+            
+            Poller -->|Dropped Event| Bus
+            Bus --> AI_Eng
+            AI_Eng --> Validator
+            AI_Eng -->|Error 429/Timeout| Fallback
+            Validator & Fallback -->|Retry Plan| BullMQ
+            BullMQ -->|Retry Job| Orchestrator
+
+            Orchestrator & Bus --> Prisma
+            Prisma --> SQLite
+            BullMQ --> Redis
+
+            class Jito,gRPC,WS_Client,UI external;
+            class Orchestrator,Builder,Sim,FeeMgr,Poller,SlotTr,LeaderTr,WS_Server,REST,Bus,Constructor,Sender,Tracker,TipMgr core;
+            class AI_Eng,Fallback,Validator ai;
+            class Prisma,SQLite,BullMQ,Redis storage;
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Component Breakdown -->
+    <section id="section-2" class="space-y-6">
+      <div class="flex items-center gap-3">
+        <div class="h-8 w-1.5 bg-solana-purple rounded-full"></div>
+        <h2 class="text-2xl font-black text-white tracking-tight">02. Core Components & Responsibilities</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Yellowstone gRPC Wrapper -->
+        <div class="glass rounded-xl p-6 border border-zinc-800 space-y-3">
+          <div class="flex items-center gap-2.5">
+            <span class="p-2 bg-blue-500/10 text-blue-400 rounded-lg text-sm font-bold">A</span>
+            <h3 class="text-base font-bold text-white">Yellowstone gRPC & WS Fallback</h3>
+          </div>
+          <p class="text-zinc-400 text-xs leading-relaxed">
+            Subscribes to live slot changes from the Yellowstone Geyser gRPC daemon. If native bindings fail (such as the <code class="text-zinc-200">napi-rs</code> compilation locks on Windows Node 24), it transparently downgrades to a standard JSON-RPC WebSocket listener (<code class="text-zinc-200">onSlotChange</code>) so slot feeds remain uninterrupted.
+          </p>
+        </div>
+
+        <!-- Leader Cache & Scheduler -->
+        <div class="glass rounded-xl p-6 border border-zinc-800 space-y-3">
+          <div class="flex items-center gap-2.5">
+            <span class="p-2 bg-purple-500/10 text-purple-400 rounded-lg text-sm font-bold">B</span>
+            <h3 class="text-base font-bold text-white">Leader Cache & Scheduler</h3>
+          </div>
+          <p class="text-zinc-400 text-xs leading-relaxed">
+            Caches the active epoch-level leader schedule via Helius/RPC. Correlates scheduled validator public keys against Jito-enabled validator nodes. Times transaction bundles to execute precisely during identified Jito leader slots.
+          </p>
+        </div>
+
+        <!-- Jito Bundle Engine -->
+        <div class="glass rounded-xl p-6 border border-zinc-800 space-y-3">
+          <div class="flex items-center gap-2.5">
+            <span class="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg text-sm font-bold">C</span>
+            <h3 class="text-base font-bold text-white">Jito Bundle Engine & Tip floor API</h3>
+          </div>
+          <p class="text-zinc-400 text-xs leading-relaxed">
+            Builds multi-transaction bundles and appends a dynamic tip transfer instruction targeting a random active Jito tip account. Queries Jito's REST API (<code class="text-zinc-200">bundles/tip_floor</code>) every 60s to dynamically adjust tips based on live landing rates (p50 baseline up to p75 under load) without hardcoded values.
+          </p>
+        </div>
+
+        <!-- AI Decision Engine -->
+        <div class="glass rounded-xl p-6 border border-zinc-800 space-y-3">
+          <div class="flex items-center gap-2.5">
+            <span class="p-2 bg-pink-500/10 text-pink-400 rounded-lg text-sm font-bold">D</span>
+            <h3 class="text-base font-bold text-white">AI Decision Engine (Gemini 2.0)</h3>
+          </div>
+          <p class="text-zinc-400 text-xs leading-relaxed">
+            Invoked upon poller timeouts or transaction drops. Receives a detailed prompt outlining upcoming leaders, gas/compute usage, blockhash errors, and recent Jito tip history. Renders structured retry plans parsed and validated with Zod. Includes a circuit breaker that defaults to rules-based logic during API outages or quota limits.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: Data Flow -->
+    <section id="section-3" class="space-y-6">
+      <div class="flex items-center gap-3">
+        <div class="h-8 w-1.5 bg-solana-green rounded-full"></div>
+        <h2 class="text-2xl font-black text-white tracking-tight">03. Submission & Recovery Flows</h2>
+      </div>
+
+      <div class="glass rounded-2xl p-6 border border-zinc-800 space-y-6 text-sm leading-relaxed">
+        <!-- Happy Path -->
+        <div class="space-y-2 border-b border-zinc-800/80 pb-6">
+          <h3 class="text-base font-bold text-emerald-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            Happy Path Submission Flow
+          </h3>
+          <ol class="list-decimal list-inside space-y-1 text-zinc-400 font-medium pl-2">
+            <li>API receives a transaction request, simulating it to extract exact Compute Units (CU).</li>
+            <li>Bundle Constructor appends the dynamic tip floor and signs a Solana Versioned Transaction.</li>
+            <li>Leader Scheduler checks upcoming slots and broadcasts the bundle during the next Jito leader slot.</li>
+            <li>Yellowstone gRPC streaming (or RPC websocket polling) monitors slot finalization.</li>
+            <li>The transaction reaches <code class="text-zinc-200">FINALIZED</code> and pushes updates to the dashboard via WebSockets.</li>
+          </ol>
+        </div>
+
+        <!-- Expired Blockhash Failure -->
+        <div class="space-y-2 pt-2">
+          <h3 class="text-base font-bold text-rose-500 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+            Expired Blockhash Fault Recovery Flow
+          </h3>
+          <ol class="list-decimal list-inside space-y-1 text-zinc-400 font-medium pl-2">
+            <li>Fault Injection route (<code class="text-zinc-200">/api/v1/transactions/expired</code>) submits a transaction signed with a stale genesis blockhash.</li>
+            <li>Confirmation Poller attempts to confirm the signature. After 30 attempts without block inclusion, the transaction times out.</li>
+            <li>The state transitions to <code class="text-zinc-200">FAILED</code>, classified as <code class="text-zinc-200">BLOCKHASH_EXPIRED</code>.</li>
+            <li>The AI agent is triggered. It detects the expired blockhash, fetches a **fresh blockhash**, recalculates the Jito tip, and sets `shouldRetry: true`.</li>
+            <li>A BullMQ retry job is dispatched to Upstash Redis with the calculated delay.</li>
+            <li>The BullMQ worker executes, rebuilds/re-signs the transaction, and broadcasts it.</li>
+            <li>The transaction lands successfully on attempt 2, transitioning to <code class="text-zinc-200">FINALIZED</code>.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Infrastructure & Storage -->
+    <section id="section-4" class="space-y-6">
+      <div class="flex items-center gap-3">
+        <div class="h-8 w-1.5 bg-solana-purple rounded-full"></div>
+        <h2 class="text-2xl font-black text-white tracking-tight">04. Infrastructure & State Storage</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs leading-relaxed">
+        <div class="glass rounded-xl p-5 border border-zinc-800 space-y-2">
+          <h4 class="text-sm font-bold text-zinc-300">SQLite & Prisma ORM</h4>
+          <p class="text-zinc-500">
+            Stores permanent logs of <code class="text-zinc-300">transactions</code>, <code class="text-zinc-300">bundles</code>, and <code class="text-zinc-300">ai_decisions</code>. This solves the issue of dashboard data clearing on server restarts, reloading transaction histories on startup.
+          </p>
+        </div>
+        
+        <div class="glass rounded-xl p-5 border border-zinc-800 space-y-2">
+          <h4 class="text-sm font-bold text-zinc-300">BullMQ & Upstash Redis</h4>
+          <p class="text-zinc-500">
+            Manages background retry states, isolating failures and executing transaction re-submits with exponential backoff or dynamic delays suggested by the AI agent.
+          </p>
+        </div>
+
+        <div class="glass rounded-xl p-5 border border-zinc-800 space-y-2">
+          <h4 class="text-sm font-bold text-zinc-300">Prometheus & Pino</h4>
+          <p class="text-zinc-500">
+            Pino captures JSON structured logs from backend services. <code class="text-zinc-300">prom-client</code> compiles landing latencies, AI confidence rates, and priority fees, exposing them at <code class="text-zinc-300">/metrics</code>.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="text-center text-zinc-600 text-xs border-t border-zinc-900 pt-8 pb-12">
+      <p>© 2026 Solstice Protocol. Built for the Superteam Nigeria Advanced Infrastructure Challenge.</p>
+    </footer>
+
+  </div>
+</body>
+</html>

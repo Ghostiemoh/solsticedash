@@ -2,6 +2,9 @@
 
 **Validator-Aware Smart Transaction Execution & Intelligence Infrastructure for Solana**
 
+> 🚀 **Live Telemetry Dashboard**: [https://solsticedash.vercel.app](https://solsticedash.vercel.app)
+> 📄 **Public Architecture Document**: [https://solsticedash.vercel.app/architecture.html](https://solsticedash.vercel.app/architecture.html)
+
 Solstice is a production-grade transaction execution engine designed to maximize Solana transaction landing probability. It combines real-time slot and leader scheduling telemetry with Jito bundle submission, dynamic tip management, and an AI-driven autonomous retry engine.
 
 ---
