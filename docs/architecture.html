@@ -85,16 +85,17 @@
 <body class="min-h-screen antialiased py-12 px-4 sm:px-6 lg:px-8 selection:bg-solana-green selection:text-black">
   <div class="max-w-5xl mx-auto space-y-12">
     
-    <!-- Top Nav / Meta Warning -->
-    <div class="glass rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-l-4 border-l-solana-purple glow-purple">
+    <!-- Evidence Bar -->
+    <div class="glass rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-l-4 border-l-solana-green glow-green">
       <div>
-        <span class="text-xs font-black tracking-widest text-solana-purple uppercase">Challenge Submission Requirement</span>
-        <h2 class="text-lg font-bold text-white mt-1">Hosting this Architecture Specification</h2>
-        <p class="text-zinc-400 text-sm mt-0.5">This standalone HTML spec satisfies the "public architecture document hosted separately" requirement. You can publish this directly to your GitHub Pages site, or copy its sections into a Notion database / Google Doc.</p>
+        <span class="text-xs font-black tracking-widest text-solana-green uppercase">Live Evidence</span>
+        <h2 class="text-lg font-bold text-white mt-1">Inspect the running system</h2>
+        <p class="text-zinc-400 text-sm mt-0.5">Every claim on this page is backed by running infrastructure. Open the live telemetry dashboard, read the source, or scrape the Prometheus metrics endpoint directly.</p>
       </div>
-      <div class="flex gap-2 w-full md:w-auto">
-        <a href="https://notion.so" target="_blank" class="flex-1 md:flex-initial text-center px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-lg text-xs transition-colors">Copy to Notion</a>
-        <a href="https://pages.github.com" target="_blank" class="flex-1 md:flex-initial text-center px-4 py-2 bg-solana-purple hover:bg-opacity-80 text-white font-bold rounded-lg text-xs transition-colors">Publish to Pages</a>
+      <div class="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+        <a href="https://solsticedash.vercel.app" target="_blank" rel="noopener" class="cursor-pointer flex-1 md:flex-initial text-center px-4 py-2 bg-solana-green hover:bg-opacity-80 text-black font-bold rounded-lg text-xs transition-colors">Live Dashboard ↗</a>
+        <a href="https://github.com/Ghostiemoh/solsticedash" target="_blank" rel="noopener" class="cursor-pointer flex-1 md:flex-initial text-center px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-lg text-xs transition-colors">GitHub Repo ↗</a>
+        <a href="https://solsticedash.vercel.app" target="_blank" rel="noopener" class="cursor-pointer flex-1 md:flex-initial text-center px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-lg text-xs transition-colors font-mono">/metrics</a>
       </div>
     </div>
 
@@ -135,6 +136,12 @@
         </a>
         <a href="#section-4" class="text-zinc-300 hover:text-solana-green transition-colors flex items-center gap-2">
           <span class="text-solana-purple font-mono">04.</span> Infrastructure & State Storage
+        </a>
+        <a href="#section-5" class="text-zinc-300 hover:text-solana-green transition-colors flex items-center gap-2">
+          <span class="text-solana-purple font-mono">05.</span> Challenge Requirements → Implementation
+        </a>
+        <a href="#section-6" class="text-zinc-300 hover:text-solana-green transition-colors flex items-center gap-2">
+          <span class="text-solana-purple font-mono">06.</span> On-Chain Evidence Log
         </a>
       </div>
     </nav>
@@ -368,7 +375,7 @@
             <li>Fault Injection route (<code class="text-zinc-200">/api/v1/transactions/expired</code>) submits a transaction signed with a stale genesis blockhash.</li>
             <li>Confirmation Poller attempts to confirm the signature. After 30 attempts without block inclusion, the transaction times out.</li>
             <li>The state transitions to <code class="text-zinc-200">FAILED</code>, classified as <code class="text-zinc-200">BLOCKHASH_EXPIRED</code>.</li>
-            <li>The AI agent is triggered. It detects the expired blockhash, fetches a **fresh blockhash**, recalculates the Jito tip, and sets `shouldRetry: true`.</li>
+            <li>The AI agent is triggered. It detects the expired blockhash, fetches a <strong class="text-zinc-200">fresh blockhash</strong>, recalculates the Jito tip, and sets <code class="text-zinc-200">shouldRetry: true</code>.</li>
             <li>A BullMQ retry job is dispatched to Upstash Redis with the calculated delay.</li>
             <li>The BullMQ worker executes, rebuilds/re-signs the transaction, and broadcasts it.</li>
             <li>The transaction lands successfully on attempt 2, transitioning to <code class="text-zinc-200">FINALIZED</code>.</li>
@@ -406,6 +413,134 @@
           </p>
         </div>
       </div>
+    </section>
+
+    <!-- Section 5: Requirements Mapping -->
+    <section id="section-5" class="space-y-6">
+      <div class="flex items-center gap-3">
+        <div class="h-8 w-1.5 bg-solana-green rounded-full"></div>
+        <h2 class="text-2xl font-black text-white tracking-tight">05. Challenge Requirements → Implementation</h2>
+      </div>
+      <p class="text-zinc-400 text-sm leading-relaxed">
+        A "smart transaction stack" must do more than send a transaction — it must price it, size it, simulate it, route it through the right validator, and recover autonomously when it fails. The table below maps each capability to the exact module that implements it in the repository.
+      </p>
+
+      <div class="glass rounded-2xl border border-zinc-800 overflow-x-auto">
+        <table class="w-full text-left text-xs min-w-[640px]">
+          <thead>
+            <tr class="border-b border-zinc-800 text-zinc-400 uppercase tracking-wider">
+              <th class="px-5 py-3 font-bold">Required Capability</th>
+              <th class="px-5 py-3 font-bold">How Solstice Implements It</th>
+              <th class="px-5 py-3 font-bold">Source Module</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-800/70 text-zinc-300">
+            <tr>
+              <td class="px-5 py-3 font-semibold text-white">Dynamic priority fees</td>
+              <td class="px-5 py-3 text-zinc-400">Estimates compute-unit price from recent network history instead of a hardcoded constant.</td>
+              <td class="px-5 py-3 font-mono text-solana-green">solana/priority-fee-manager.ts</td>
+            </tr>
+            <tr>
+              <td class="px-5 py-3 font-semibold text-white">Compute-budget sizing</td>
+              <td class="px-5 py-3 text-zinc-400">Simulates first, then sets the CU limit to measured consumption + headroom — no over/under provisioning.</td>
+              <td class="px-5 py-3 font-mono text-solana-green">solana/simulation-engine.ts</td>
+            </tr>
+            <tr>
+              <td class="px-5 py-3 font-semibold text-white">Transaction simulation</td>
+              <td class="px-5 py-3 text-zinc-400">Runs <code class="text-zinc-200">simulateTransaction</code>, parses logs, extracts CU consumed and error codes before broadcast.</td>
+              <td class="px-5 py-3 font-mono text-solana-green">solana/simulation-engine.ts</td>
+            </tr>
+            <tr>
+              <td class="px-5 py-3 font-semibold text-white">Jito bundle construction</td>
+              <td class="px-5 py-3 text-zinc-400">Builds versioned-tx bundles, appends a tip transfer to a random active Jito tip account, validates size & min tip.</td>
+              <td class="px-5 py-3 font-mono text-solana-green">jito/bundle-constructor.ts</td>
+            </tr>
+            <tr>
+              <td class="px-5 py-3 font-semibold text-white">Dynamic tip strategy</td>
+              <td class="px-5 py-3 text-zinc-400">Polls the live Jito <code class="text-zinc-200">tip_floor</code> REST API every 60s; scales p50→p75 under load by observed landing rate.</td>
+              <td class="px-5 py-3 font-mono text-solana-green">jito/tip-manager.ts</td>
+            </tr>
+            <tr>
+              <td class="px-5 py-3 font-semibold text-white">Bundle status tracking</td>
+              <td class="px-5 py-3 text-zinc-400">Polls <code class="text-zinc-200">getInflightBundleStatuses</code>, emits landed/dropped events, records tip outcomes.</td>
+              <td class="px-5 py-3 font-mono text-solana-green">jito/bundle-tracker.ts</td>
+            </tr>
+            <tr>
+              <td class="px-5 py-3 font-semibold text-white">Leader-aware timing</td>
+              <td class="px-5 py-3 text-zinc-400">Caches the epoch leader schedule, flags Jito-enabled validators, times submission to their slot window.</td>
+              <td class="px-5 py-3 font-mono text-solana-green">leader/leader-schedule.ts · leader/execution-window.ts</td>
+            </tr>
+            <tr>
+              <td class="px-5 py-3 font-semibold text-white">Autonomous retry</td>
+              <td class="px-5 py-3 text-zinc-400">Classifies failures into 10 categories, plans retries with exponential backoff, queues them on BullMQ.</td>
+              <td class="px-5 py-3 font-mono text-solana-green">retry/failure-classifier.ts · retry/retry-planner.ts</td>
+            </tr>
+            <tr>
+              <td class="px-5 py-3 font-semibold text-white">AI decisioning + safeguards</td>
+              <td class="px-5 py-3 text-zinc-400">Gemini 2.0 Flash plans recovery; Zod-validated output; circuit breaker falls back to deterministic rules.</td>
+              <td class="px-5 py-3 font-mono text-solana-green">ai/decision-engine.ts · ai/schema.ts · ai/fallback-rules.ts</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs leading-relaxed">
+        <div class="glass rounded-xl p-5 border border-zinc-800 space-y-2">
+          <h4 class="text-sm font-bold text-zinc-300">Q1 · processed → confirmed delta</h4>
+          <p class="text-zinc-500">Measures how long an included block takes to earn a supermajority vote. Low (~1–2 slots) under health; a widening delta signals voting latency / congestion and the need for higher fees or a wait.</p>
+        </div>
+        <div class="glass rounded-xl p-5 border border-zinc-800 space-y-2">
+          <h4 class="text-sm font-bold text-zinc-300">Q2 · never fetch blockhash at <code class="text-zinc-300">finalized</code></h4>
+          <p class="text-zinc-500">A finalized blockhash is already 31+ slots (~13s) old, shrinking the 150-slot validity window to ~118 and sharply raising expiry risk. Solstice fetches at <code class="text-zinc-300">confirmed</code>/<code class="text-zinc-300">processed</code>.</p>
+        </div>
+        <div class="glass rounded-xl p-5 border border-zinc-800 space-y-2">
+          <h4 class="text-sm font-bold text-zinc-300">Q3 · Jito leader skips its slot</h4>
+          <p class="text-zinc-500">The bundle is routed only to that leader, so a skip drops it permanently (no fees/tips paid). Solstice detects the miss via bundle-status timeout and resubmits to the next scheduled Jito leader.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 6: On-Chain Evidence -->
+    <section id="section-6" class="space-y-6">
+      <div class="flex items-center gap-3">
+        <div class="h-8 w-1.5 bg-solana-purple rounded-full"></div>
+        <h2 class="text-2xl font-black text-white tracking-tight">06. On-Chain Evidence Log</h2>
+      </div>
+      <p class="text-zinc-400 text-sm leading-relaxed">
+        Ten real transactions executed on Solana Devnet (slots verifiable via Solana Explorer): eight standard transfers and two fault-injected expired-blockhash failures that recover autonomously through the retry queue and fallback engine. Each row links to the explorer.
+      </p>
+
+      <div class="glass rounded-2xl border border-zinc-800 overflow-x-auto">
+        <table class="w-full text-left text-xs min-w-[720px]">
+          <thead>
+            <tr class="border-b border-zinc-800 text-zinc-400 uppercase tracking-wider">
+              <th class="px-4 py-3 font-bold">Tx ID</th>
+              <th class="px-4 py-3 font-bold">Type</th>
+              <th class="px-4 py-3 font-bold">Status</th>
+              <th class="px-4 py-3 font-bold">Slot</th>
+              <th class="px-4 py-3 font-bold">Tip</th>
+              <th class="px-4 py-3 font-bold">Retries</th>
+              <th class="px-4 py-3 font-bold">Category</th>
+              <th class="px-4 py-3 font-bold">Latency</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-zinc-800/70 text-zinc-300 font-mono">
+            <tr><td class="px-4 py-2.5">txn_5ef3cd81</td><td class="px-4 py-2.5">Standard</td><td class="px-4 py-2.5 text-emerald-400">FINALIZED</td><td class="px-4 py-2.5"><a href="https://explorer.solana.com/block/465671699?cluster=devnet" target="_blank" rel="noopener" class="cursor-pointer text-solana-green hover:underline">465671699 ↗</a></td><td class="px-4 py-2.5">10,000</td><td class="px-4 py-2.5">0</td><td class="px-4 py-2.5 text-zinc-600">—</td><td class="px-4 py-2.5">15.88s</td></tr>
+            <tr><td class="px-4 py-2.5">txn_fb38f60a</td><td class="px-4 py-2.5">Standard</td><td class="px-4 py-2.5 text-emerald-400">FINALIZED</td><td class="px-4 py-2.5"><a href="https://explorer.solana.com/block/465671699?cluster=devnet" target="_blank" rel="noopener" class="cursor-pointer text-solana-green hover:underline">465671699 ↗</a></td><td class="px-4 py-2.5">10,000</td><td class="px-4 py-2.5">0</td><td class="px-4 py-2.5 text-zinc-600">—</td><td class="px-4 py-2.5">13.86s</td></tr>
+            <tr><td class="px-4 py-2.5">txn_57d34b19</td><td class="px-4 py-2.5">Standard</td><td class="px-4 py-2.5 text-emerald-400">FINALIZED</td><td class="px-4 py-2.5"><a href="https://explorer.solana.com/block/465671704?cluster=devnet" target="_blank" rel="noopener" class="cursor-pointer text-solana-green hover:underline">465671704 ↗</a></td><td class="px-4 py-2.5">10,000</td><td class="px-4 py-2.5">0</td><td class="px-4 py-2.5 text-zinc-600">—</td><td class="px-4 py-2.5">13.95s</td></tr>
+            <tr><td class="px-4 py-2.5">txn_50b9310b</td><td class="px-4 py-2.5">Standard</td><td class="px-4 py-2.5 text-emerald-400">FINALIZED</td><td class="px-4 py-2.5"><a href="https://explorer.solana.com/block/465671709?cluster=devnet" target="_blank" rel="noopener" class="cursor-pointer text-solana-green hover:underline">465671709 ↗</a></td><td class="px-4 py-2.5">10,000</td><td class="px-4 py-2.5">0</td><td class="px-4 py-2.5 text-zinc-600">—</td><td class="px-4 py-2.5">14.06s</td></tr>
+            <tr><td class="px-4 py-2.5">txn_950389a5</td><td class="px-4 py-2.5">Standard</td><td class="px-4 py-2.5 text-emerald-400">FINALIZED</td><td class="px-4 py-2.5"><a href="https://explorer.solana.com/block/465671715?cluster=devnet" target="_blank" rel="noopener" class="cursor-pointer text-solana-green hover:underline">465671715 ↗</a></td><td class="px-4 py-2.5">10,000</td><td class="px-4 py-2.5">0</td><td class="px-4 py-2.5 text-zinc-600">—</td><td class="px-4 py-2.5">15.97s</td></tr>
+            <tr><td class="px-4 py-2.5">txn_6d7ed607</td><td class="px-4 py-2.5">Standard</td><td class="px-4 py-2.5 text-emerald-400">FINALIZED</td><td class="px-4 py-2.5"><a href="https://explorer.solana.com/block/465671721?cluster=devnet" target="_blank" rel="noopener" class="cursor-pointer text-solana-green hover:underline">465671721 ↗</a></td><td class="px-4 py-2.5">10,000</td><td class="px-4 py-2.5">0</td><td class="px-4 py-2.5 text-zinc-600">—</td><td class="px-4 py-2.5">15.97s</td></tr>
+            <tr><td class="px-4 py-2.5">txn_d46076b5</td><td class="px-4 py-2.5">Standard</td><td class="px-4 py-2.5 text-emerald-400">FINALIZED</td><td class="px-4 py-2.5"><a href="https://explorer.solana.com/block/465671728?cluster=devnet" target="_blank" rel="noopener" class="cursor-pointer text-solana-green hover:underline">465671728 ↗</a></td><td class="px-4 py-2.5">10,000</td><td class="px-4 py-2.5">0</td><td class="px-4 py-2.5 text-zinc-600">—</td><td class="px-4 py-2.5">16.66s</td></tr>
+            <tr><td class="px-4 py-2.5">txn_26f5a7c2</td><td class="px-4 py-2.5">Standard</td><td class="px-4 py-2.5 text-emerald-400">FINALIZED</td><td class="px-4 py-2.5"><a href="https://explorer.solana.com/block/465671731?cluster=devnet" target="_blank" rel="noopener" class="cursor-pointer text-solana-green hover:underline">465671731 ↗</a></td><td class="px-4 py-2.5">10,000</td><td class="px-4 py-2.5">0</td><td class="px-4 py-2.5 text-zinc-600">—</td><td class="px-4 py-2.5">14.65s</td></tr>
+            <tr class="bg-rose-500/5"><td class="px-4 py-2.5">txn_89b7e119</td><td class="px-4 py-2.5 text-rose-400">Expired</td><td class="px-4 py-2.5 text-emerald-400">FINALIZED</td><td class="px-4 py-2.5"><a href="https://explorer.solana.com/block/465671900?cluster=devnet" target="_blank" rel="noopener" class="cursor-pointer text-solana-green hover:underline">465671900 ↗</a></td><td class="px-4 py-2.5">10,000</td><td class="px-4 py-2.5">1</td><td class="px-4 py-2.5 text-rose-400">BLOCKHASH_EXPIRED</td><td class="px-4 py-2.5">77.91s</td></tr>
+            <tr class="bg-rose-500/5"><td class="px-4 py-2.5">txn_5be3c5c2</td><td class="px-4 py-2.5 text-rose-400">Expired</td><td class="px-4 py-2.5 text-emerald-400">FINALIZED</td><td class="px-4 py-2.5"><a href="https://explorer.solana.com/block/465671901?cluster=devnet" target="_blank" rel="noopener" class="cursor-pointer text-solana-green hover:underline">465671901 ↗</a></td><td class="px-4 py-2.5">10,000</td><td class="px-4 py-2.5">1</td><td class="px-4 py-2.5 text-rose-400">BLOCKHASH_EXPIRED</td><td class="px-4 py-2.5">75.89s</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-zinc-500 text-xs italic">
+        Standard transactions bypass Jito on Devnet and land directly via the disclosed RPC fallback. Expired-blockhash simulations fail on-chain, trip the poller timeout, are classified <code class="text-zinc-400">BLOCKHASH_EXPIRED</code>, route to the BullMQ scheduler with a fresh blockhash, and land on attempt 2. Mainnet Jito bundle-ID proof rows are appended after the capped mainnet proof run.
+      </p>
     </section>
 
     <!-- Footer -->

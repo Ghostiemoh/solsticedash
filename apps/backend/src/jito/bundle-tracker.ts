@@ -15,6 +15,11 @@ import { prisma } from '../db/prisma-client.js';
 
 const log = createChildLogger('bundle-tracker');
 
+// Bundles still pending after this long never landed within their leader window.
+// We treat them as dropped (probable Jito leader skip) so the retry engine can
+// resubmit, rather than tracking a stuck bundle indefinitely.
+const BUNDLE_PENDING_TIMEOUT_MS = 12_000;
+
 interface InflightBundleStatus {
   bundle_id: string;
   status: 'Pending' | 'Failed' | 'Landed';
@@ -69,12 +74,53 @@ export class BundleTracker {
       return;
     }
 
+    // First, expire any bundle that has been pending past its leader window.
+    this.expireStaleBundles();
+
     const bundleIds = Array.from(this.trackedBundles.keys());
-    
+
     // Process in batches of 5 (Jito limit)
     for (let i = 0; i < bundleIds.length; i += 5) {
       const batch = bundleIds.slice(i, i + 5);
       await this.fetchBatchStatus(batch);
+    }
+  }
+
+  /**
+   * Drop bundles that have been pending past the leader window without landing.
+   * Emits BUNDLE_DROPPED so the orchestrator's drop analyzer can classify the
+   * cause (typically a Jito leader skip) and schedule a leader-aware retry.
+   */
+  private expireStaleBundles(): void {
+    const now = Date.now();
+    for (const [bundleId, record] of this.trackedBundles) {
+      if (now - record.sentAt <= BUNDLE_PENDING_TIMEOUT_MS) continue;
+
+      record.status = BundleStatus.DROPPED;
+      record.rejectedAt = now;
+
+      tipManager.recordOutcome(record.tipLamports, false);
+      eventBus.emit(EVENTS.BUNDLE_DROPPED, record);
+
+      prisma.bundle
+        .update({
+          where: { id: record.id },
+          data: {
+            status: BundleStatus.DROPPED,
+            rejectedAt: new Date(now),
+            rejectionReason: 'leader_skip_timeout',
+          },
+        })
+        .catch((err) =>
+          log.error({ err: err.message }, 'failed to update expired bundle in database')
+        );
+
+      this.trackedBundles.delete(bundleId);
+
+      log.warn(
+        { bundleId, elapsedMs: now - record.sentAt },
+        'bundle pending past leader window — dropping as probable leader skip',
+      );
     }
   }
 

@@ -10,7 +10,7 @@
     }
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "src/__tests__"],
+  "exclude": ["node_modules", "dist", "src/__tests__", "src/**/*.test.ts", "vitest.config.ts", "vitest.setup.ts"],
   "references": [
     { "path": "../../packages/shared" }
   ]
