@@ -136,12 +136,12 @@ Start the backend transaction gateway and telemetry dashboard in development mod
 cd apps/backend
 pnpm run dev
 
-# In terminal 2 (starts Next.js app at http://localhost:3000)
+# In terminal 2 (starts Next.js app at http://localhost:3000 or view live at https://solsticedash.vercel.app)
 cd apps/dashboard
 pnpm run dev
 ```
 
 ### 5. Testing and Fault Injection
-*   Open the Dashboard at `http://localhost:3000`.
+*   Open the Dashboard at [https://solsticedash.vercel.app](https://solsticedash.vercel.app) (or locally at `http://localhost:3000`).
 *   Click **Test Transaction** to submit a standard transfer directly to the Solana Devnet RPC cluster.
 *   Click **Simulate Expired Blockhash** to execute our fault injection simulation. The dashboard will show the transaction fail, register the poller timeout, schedule a BullMQ retry, and succeed on-chain with a fresh blockhash!
