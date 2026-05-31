@@ -19,8 +19,10 @@ import {
   RotateCcw,
   Server,
   ShieldAlert,
+  Sliders,
   TrendingUp,
   Users,
+  X,
   Zap,
 } from 'lucide-react';
 import {
@@ -442,6 +444,9 @@ const MOCK_TRANSACTIONS: Transaction[] = [
 ];
 
 export default function Dashboard() {
+  const [apiUrl, setApiUrl] = useState<string>('http://localhost:3001');
+  const [tempApiUrl, setTempApiUrl] = useState<string>('http://localhost:3001');
+  const [showSettings, setShowSettings] = useState(false);
   const [health, setHealth] = useState<any>(null);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -460,8 +465,19 @@ export default function Dashboard() {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
+  // Load configured API URL from localStorage on client-side mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedUrl = localStorage.getItem('solstice_api_url') || process.env['NEXT_PUBLIC_API_URL'];
+      if (storedUrl) {
+        setApiUrl(storedUrl);
+        setTempApiUrl(storedUrl);
+      }
+    }
+  }, []);
+
   const fetchJson = async <T,>(path: string): Promise<T> => {
-    const response = await fetch(`${API_BASE}${path}`);
+    const response = await fetch(`${apiUrl}${path}`);
     if (!response.ok) throw new Error(`${path} returned ${response.status}`);
     return (await response.json()) as T;
   };
@@ -503,7 +519,11 @@ export default function Dashboard() {
     const ageInterval = setInterval(() => setSlotAge((prev) => prev + 50), 50);
 
     const connectWs = () => {
-      const wsUrl = process.env['NEXT_PUBLIC_WS_URL'] || (API_BASE.startsWith('https') ? API_BASE.replace('https://', 'wss://') : API_BASE.replace('http://', 'ws://')) + '/ws';
+      const normalizedApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+      const wsUrl = process.env['NEXT_PUBLIC_WS_URL'] || 
+        (normalizedApiUrl.startsWith('https') 
+          ? normalizedApiUrl.replace('https://', 'wss://') 
+          : normalizedApiUrl.replace('http://', 'ws://')) + '/ws';
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
       ws.onopen = () => setConnected(true);
@@ -548,14 +568,14 @@ export default function Dashboard() {
       clearInterval(ageInterval);
       wsRef.current?.close();
     };
-  }, []);
+  }, [apiUrl]);
 
   const submitTransaction = async (path: string, successMessage: string) => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     setNotice(null);
     try {
-      const response = await fetch(`${API_BASE}${path}`, { method: 'POST' });
+      const response = await fetch(`${apiUrl}${path}`, { method: 'POST' });
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.error || 'Backend rejected the submission.');
       setNotice({ type: 'success', message: successMessage });
@@ -684,6 +704,18 @@ export default function Dashboard() {
                 <RefreshCw className="h-4 w-4" aria-hidden="true" />
                 Refresh
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTempApiUrl(apiUrl);
+                  setShowSettings(true);
+                }}
+                className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-semibold text-zinc-200 transition-all duration-200 hover:bg-white/[0.08] hover:text-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                title="Connection Settings"
+              >
+                <Sliders className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Settings</span>
+              </button>
             </div>
           </div>
         </header>
@@ -695,9 +727,12 @@ export default function Dashboard() {
             <div className="relative overflow-hidden rounded-2xl border border-blue-500/15 bg-blue-500/[0.03] p-4 text-xs text-blue-300 backdrop-blur-md shadow-2xl flex items-center justify-between gap-4">
               <div className="flex items-center gap-2.5">
                 <Activity className="h-4 w-4 text-blue-400 animate-pulse" />
-                <span>
-                  <strong>Offline Demo Mode Active</strong> — Local backend server at <code>{API_BASE}</code> is unreachable. Showing cached compliance telemetry.
-                </span>
+                <div>
+                  <strong>Offline Demo Mode Active</strong> — Local backend server at <code>{apiUrl}</code> is unreachable. Showing cached compliance telemetry.
+                  <span className="block mt-1 text-[10px] text-blue-400/80">
+                    💡 <strong>Pro Tip</strong>: Standard browsers block insecure HTTP requests from HTTPS sites. You can start a secure tunnel locally using <code className="text-zinc-300">ngrok http 3001</code> and enter the generated <code className="text-emerald-400">https://...</code> URL in the <strong>Settings</strong> panel above, or run this dashboard locally at <code className="text-zinc-300">http://localhost:3000</code>.
+                  </span>
+                </div>
               </div>
               <button
                 onClick={refreshData}
@@ -952,6 +987,82 @@ export default function Dashboard() {
           </footer>
         </div>
       </div>
+
+      {/* ── Connection Settings Modal ── */}
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c0d12]/95 p-6 shadow-2xl backdrop-blur-xl animate-fade-in">
+            <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+              <h2 className="text-sm font-bold text-zinc-200 tracking-tight flex items-center gap-2">
+                <Sliders className="h-4 w-4 text-emerald-400" />
+                Backend Connection Settings
+              </h2>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="text-zinc-400 hover:text-white transition-all p-1 hover:bg-white/[0.04] rounded-lg"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5">
+                  Backend API URL
+                </label>
+                <input
+                  type="text"
+                  value={tempApiUrl}
+                  onChange={(e) => setTempApiUrl(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-4 py-2.5 font-mono text-xs text-white placeholder-zinc-500 focus:border-emerald-500/50 focus:bg-white/[0.04] focus:outline-none"
+                  placeholder="http://localhost:3001"
+                />
+              </div>
+
+              <div className="rounded-xl border border-blue-500/10 bg-blue-500/[0.02] p-3 text-[10px] text-zinc-400 leading-relaxed">
+                <p className="font-semibold text-blue-300 flex items-center gap-1.5 mb-1">
+                  <Activity className="h-3.5 w-3.5 text-blue-400" />
+                  Mixed Content Security Note
+                </p>
+                Standard browsers block insecure HTTP requests and WebSocket connections from HTTPS web apps. 
+                <ul className="list-disc pl-4 mt-1 space-y-1">
+                  <li>To run locally without blocks, visit the dashboard at <code className="text-zinc-300">http://localhost:3000</code>.</li>
+                  <li>To connect this live dashboard to your local backend, run <code className="text-zinc-300">ngrok http 3001</code> and enter the generated <code className="text-emerald-400">https://...</code> URL here.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3 border-t border-white/[0.06] pt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setTempApiUrl('http://localhost:3001');
+                }}
+                className="inline-flex min-h-8 cursor-pointer items-center justify-center rounded-lg border border-white/10 bg-white/[0.02] px-3.5 text-[10px] font-semibold text-zinc-400 transition-all duration-200 hover:bg-white/[0.06] hover:text-zinc-300"
+              >
+                Reset Default
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  let cleanedUrl = tempApiUrl.trim();
+                  if (cleanedUrl.endsWith('/')) {
+                    cleanedUrl = cleanedUrl.slice(0, -1);
+                  }
+                  if (typeof window !== 'undefined') {
+                    localStorage.setItem('solstice_api_url', cleanedUrl);
+                  }
+                  setApiUrl(cleanedUrl);
+                  setShowSettings(false);
+                }}
+                className="inline-flex min-h-8 cursor-pointer items-center justify-center rounded-lg bg-emerald-500 px-4 text-[10px] font-bold uppercase tracking-wider text-[#060709] transition-all duration-200 hover:bg-emerald-400 active:scale-[0.98]"
+              >
+                Save & Reconnect
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
