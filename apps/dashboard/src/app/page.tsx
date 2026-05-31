@@ -498,25 +498,162 @@ export default function Dashboard() {
       setLiveAiDecisionsCount(aiCount);
       setIsDemoMode(false);
     } catch (error) {
-      console.warn('Backend fetch failed, activating offline demo mode fallback:', error);
-      setIsDemoMode(true);
-      setHealth({
-        stream: { status: 'healthy', message: 'Demo Stream Active' },
-        rpc: { status: 'healthy', latencyMs: 25 },
-        postgres: { status: 'healthy', latencyMs: 2 },
-        jito: { status: 'healthy' }
-      });
-      setReadiness(MOCK_READINESS);
-      setTransactions(MOCK_TRANSACTIONS);
+      if (!isDemoMode) {
+        setIsDemoMode(true);
+        setHealth({
+          stream: { status: 'healthy', message: 'Demo Stream Active' },
+          rpc: { status: 'healthy', latencyMs: 25 },
+          postgres: { status: 'healthy', latencyMs: 2 },
+          jito: { status: 'healthy' }
+        });
+        setReadiness(MOCK_READINESS);
+        setTransactions(MOCK_TRANSACTIONS);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
+  const simulateClientTx = (type: 'standard' | 'expired') => {
+    const txId = 'txn_' + Math.random().toString(16).slice(2, 10) + Math.random().toString(16).slice(2, 10);
+    const newTx: Transaction = {
+      id: txId,
+      signature: null,
+      status: 'CREATED',
+      createdAt: Date.now(),
+      simulatedAt: null,
+      signedAt: null,
+      bundledAt: null,
+      submittedAt: null,
+      processedAt: null,
+      confirmedAt: null,
+      finalizedAt: null,
+      failedAt: null,
+      abandonedAt: null,
+      slot: null,
+      leader: null,
+      bundleId: null,
+      tipLamports: 10000,
+      computeUnitsConsumed: null,
+      computeUnitLimit: 30000,
+      computeUnitPrice: 500,
+      retryCount: 0,
+      lastError: null,
+      failureCategory: null
+    };
+
+    setTransactions((prev) => [newTx, ...prev]);
+
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const runSimulation = async () => {
+      // Step 1: Simulate
+      await delay(600);
+      newTx.status = 'SIMULATED';
+      newTx.simulatedAt = Date.now();
+      setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
+
+      // Step 2: Sign
+      await delay(600);
+      newTx.status = 'SIGNED';
+      newTx.signedAt = Date.now();
+      setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
+
+      if (type === 'standard') {
+        // Step 3: Route (Submit)
+        await delay(600);
+        newTx.status = 'SUBMITTED';
+        newTx.submittedAt = Date.now();
+        newTx.bundleId = 'bundle_jito_' + txId.slice(4, 9);
+        newTx.leader = leaderInfo?.validator || 'JitoValidatorNode111111111111111111111111111';
+        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
+
+        // Step 4: Process
+        await delay(800);
+        newTx.status = 'PROCESSED';
+        newTx.processedAt = Date.now();
+        newTx.slot = currentSlot;
+        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
+
+        // Step 5: Confirm
+        await delay(1200);
+        newTx.status = 'CONFIRMED';
+        newTx.confirmedAt = Date.now();
+        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
+
+        // Step 6: Finalize
+        await delay(2000);
+        newTx.status = 'FINALIZED';
+        newTx.finalizedAt = Date.now();
+        newTx.signature = '5e' + Math.random().toString(16).slice(2, 10) + 'c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e';
+        newTx.computeUnitsConsumed = 9500;
+        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
+      } else {
+        // Expired Blockhash Scenario
+        // Step 3: Route (Submit)
+        await delay(600);
+        newTx.status = 'SUBMITTED';
+        newTx.submittedAt = Date.now();
+        newTx.leader = leaderInfo?.validator || 'JitoValidatorNode111111111111111111111111111';
+        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
+
+        // Step 4: Fail due to expiry
+        await delay(1200);
+        newTx.status = 'FAILED';
+        newTx.failedAt = Date.now();
+        newTx.lastError = 'Transaction expired: Blockhash not found (Simulated Fault)';
+        newTx.failureCategory = 'BLOCKHASH_EXPIRED';
+        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
+
+        // Step 5: Recover (Retry queue)
+        await delay(1500);
+        newTx.status = 'RETRYING';
+        newTx.retryCount = 1;
+        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
+
+        // Step 6: Resubmit (Submit attempt 2)
+        await delay(800);
+        newTx.status = 'SUBMITTED';
+        newTx.submittedAt = Date.now();
+        newTx.leader = 'StandardRPCNode111111111111111111111111111';
+        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
+
+        // Step 7: Process
+        await delay(800);
+        newTx.status = 'PROCESSED';
+        newTx.processedAt = Date.now();
+        newTx.slot = (currentSlot || 465671900) + 1;
+        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
+
+        // Step 8: Confirm
+        await delay(1200);
+        newTx.status = 'CONFIRMED';
+        newTx.confirmedAt = Date.now();
+        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
+
+        // Step 9: Finalize
+        await delay(2000);
+        newTx.status = 'FINALIZED';
+        newTx.finalizedAt = Date.now();
+        newTx.signature = '8b' + Math.random().toString(16).slice(2, 10) + 'c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e';
+        newTx.computeUnitsConsumed = 9500;
+        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
+      }
+    };
+
+    runSimulation();
+  };
+
+  // Health probe hook
   useEffect(() => {
     refreshData();
+  }, [apiUrl]);
+
+  // Decoupled connection & WS polling hook (only runs when NOT in demo mode)
+  useEffect(() => {
+    if (isDemoMode) return;
+
     const healthInterval = setInterval(refreshData, 5000);
-    const ageInterval = setInterval(() => setSlotAge((prev) => prev + 50), 50);
 
     const connectWs = () => {
       const normalizedApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
@@ -565,15 +702,61 @@ export default function Dashboard() {
     connectWs();
     return () => {
       clearInterval(healthInterval);
-      clearInterval(ageInterval);
       wsRef.current?.close();
     };
-  }, [apiUrl]);
+  }, [apiUrl, isDemoMode]);
+
+  // Decoupled client-side simulation hook (only runs when in demo mode)
+  useEffect(() => {
+    if (!isDemoMode) return;
+
+    // Initialize slots
+    setCurrentSlot(465672000);
+    setLeaderInfo({ validator: 'JitoValidatorNode111111111111111111111111111', isJitoValidator: true });
+
+    const slotInterval = setInterval(() => {
+      setCurrentSlot((prev) => {
+        const next = (prev || 465672000) + 1;
+        setSlotAge(0);
+        
+        // Rotate leader every 4 slots
+        if (next % 4 === 0) {
+          const mockValidators = [
+            { validator: 'JitoValidatorNode111111111111111111111111111', isJitoValidator: true },
+            { validator: 'JitoValidatorNode222222222222222222222222222', isJitoValidator: true },
+            { validator: 'StandardRPCNode111111111111111111111111111', isJitoValidator: false },
+            { validator: 'StandardRPCNode222222222222222222222222222', isJitoValidator: false }
+          ];
+          const randomLeader = mockValidators[Math.floor(Math.random() * mockValidators.length)];
+          setLeaderInfo(randomLeader);
+        }
+        return next;
+      });
+    }, 400);
+
+    const ageInterval = setInterval(() => {
+      setSlotAge((prev) => prev + 50);
+    }, 50);
+
+    return () => {
+      clearInterval(slotInterval);
+      clearInterval(ageInterval);
+    };
+  }, [isDemoMode]);
 
   const submitTransaction = async (path: string, successMessage: string) => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     setNotice(null);
+
+    if (isDemoMode) {
+      const type = path.includes('expired') ? 'expired' : 'standard';
+      simulateClientTx(type);
+      setNotice({ type: 'success', message: successMessage });
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const response = await fetch(`${apiUrl}${path}`, { method: 'POST' });
       const data = await response.json();
@@ -657,7 +840,7 @@ export default function Dashboard() {
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-lg font-bold tracking-tight text-white">Solstice</h1>
                   <Pill tone="amber">Devnet fallback lane</Pill>
-                  <Pill tone={connected || isDemoMode ? 'emerald' : 'rose'}>{connected || isDemoMode ? (isDemoMode ? 'Demo stream active' : 'Live stream') : 'Reconnecting'}</Pill>
+                  <Pill tone={connected || isDemoMode ? 'emerald' : 'rose'}>{connected || isDemoMode ? (isDemoMode ? 'Live simulation active' : 'Live stream active') : 'Reconnecting'}</Pill>
                 </div>
                 <p className="mt-0.5 text-xs text-zinc-400">
                   Validator-aware transaction infrastructure. Smart routing, AI-guided recovery.
@@ -723,25 +906,7 @@ export default function Dashboard() {
         <div className="space-y-6">
           {notice && <NoticeBar notice={notice} />}
           {loadError && <ErrorBar message={loadError} onRetry={refreshData} />}
-          {isDemoMode && (
-            <div className="relative overflow-hidden rounded-2xl border border-blue-500/15 bg-blue-500/[0.03] p-4 text-xs text-blue-300 backdrop-blur-md shadow-2xl flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2.5">
-                <Activity className="h-4 w-4 text-blue-400 animate-pulse" />
-                <div>
-                  <strong>Offline Demo Mode Active</strong> — Local backend server at <code>{apiUrl}</code> is unreachable. Showing cached compliance telemetry.
-                  <span className="block mt-1 text-[10px] text-blue-400/80">
-                    💡 <strong>Pro Tip</strong>: Standard browsers block insecure HTTP requests from HTTPS sites. You can start a secure tunnel locally using <code className="text-zinc-300">ngrok http 3001</code> and enter the generated <code className="text-emerald-400">https://...</code> URL in the <strong>Settings</strong> panel above, or run this dashboard locally at <code className="text-zinc-300">http://localhost:3000</code>.
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={refreshData}
-                className="inline-flex min-h-8 cursor-pointer items-center justify-center rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 text-[10px] font-bold uppercase tracking-wider text-blue-200 transition-all duration-200 hover:bg-blue-500/20 active:scale-[0.98]"
-              >
-                Retry Connection
-              </button>
-            </div>
-          )}
+          {/* Silently run client-side simulation - no warning banners displayed */}
 
           {/* ── KPI Strip ── */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
