@@ -19,10 +19,8 @@ import {
   RotateCcw,
   Server,
   ShieldAlert,
-  Sliders,
   TrendingUp,
   Users,
-  X,
   Zap,
 } from 'lucide-react';
 import {
@@ -120,333 +118,7 @@ interface Readiness {
 
 type Notice = { type: 'success' | 'error'; message: string } | null;
 
-const MOCK_READINESS: Readiness = {
-  network: 'devnet',
-  mode: 'devnet-prototype',
-  claims: {
-    devnetPrototype: true,
-    mainnetJitoPathWired: true,
-    mainnetJitoLandingProven: false,
-    rpcFallbackDisclosed: true,
-  },
-  evidence: {
-    totalTransactions: 10,
-    finalizedTransactions: 10,
-    failedOrAbandonedTransactions: 0,
-    retriedTransactions: 2,
-    completeLifecycleTransactions: 10,
-    executionRecords: 12,
-    aiDecisions: 2,
-  },
-  stream: {
-    status: 'healthy',
-    reconnectCount: 0,
-    messagesPerSecond: 12.5,
-    lastMessageAt: Date.now(),
-  },
-  leader: {
-    cachedEpoch: 612,
-    scheduleSize: 432000,
-    knownJitoValidators: 182,
-  },
-  tips: {
-    totalSent: 100000,
-    totalLanded: 80000,
-    totalDropped: 20000,
-    landingRate: 0.8,
-    avgTipLanded: 10000,
-    avgTipDropped: 10000,
-  },
-  nextWork: [],
-};
-
-const MOCK_TRANSACTIONS: Transaction[] = [
-  {
-    id: 'txn_5be3c5c26f7b440e',
-    signature: '3hG1p8QzB4aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890abcdef',
-    status: 'FINALIZED',
-    createdAt: Date.now() - 10000,
-    simulatedAt: Date.now() - 9500,
-    signedAt: Date.now() - 9000,
-    bundledAt: null,
-    submittedAt: Date.now() - 8500,
-    processedAt: Date.now() - 8000,
-    confirmedAt: Date.now() - 6000,
-    finalizedAt: Date.now() - 2000,
-    failedAt: null,
-    abandonedAt: null,
-    slot: 465671901,
-    leader: 'JitoValidatorNode111111111111111111111111111',
-    bundleId: null,
-    tipLamports: 10000,
-    computeUnitsConsumed: 12000,
-    computeUnitLimit: 30000,
-    computeUnitPrice: 1000,
-    retryCount: 1,
-    lastError: 'Transaction expired: Blockhash not found (Simulated Fault)',
-    failureCategory: 'BLOCKHASH_EXPIRED',
-    aiDecision: {
-      timestamp: Date.now() - 8200,
-      modelUsed: 'gemini-2.0-flash',
-      wasOverridden: false,
-      latencyMs: 120,
-      decision: {
-        shouldRetry: true,
-        newTipLamports: 10000,
-        delayMs: 2000,
-        splitBundle: false,
-        waitForJitoLeader: false,
-        confidence: 0.99,
-        reasoning: 'Simulated expired blockhash error detected. Successfully retrieved a fresh blockhash, kept tip constant, and scheduled immediate retry execution.'
-      }
-    }
-  },
-  {
-    id: 'txn_89b7e119715f45e1',
-    signature: '4hG1p8QzB4aBcDeFgHiJkLmNoPqRsTuVwXyZ1234567890abcdef',
-    status: 'FINALIZED',
-    createdAt: Date.now() - 20000,
-    simulatedAt: Date.now() - 19500,
-    signedAt: Date.now() - 19000,
-    bundledAt: null,
-    submittedAt: Date.now() - 18500,
-    processedAt: Date.now() - 18000,
-    confirmedAt: Date.now() - 16000,
-    finalizedAt: Date.now() - 12000,
-    failedAt: null,
-    abandonedAt: null,
-    slot: 465671900,
-    leader: 'JitoValidatorNode111111111111111111111111111',
-    bundleId: null,
-    tipLamports: 10000,
-    computeUnitsConsumed: 12000,
-    computeUnitLimit: 30000,
-    computeUnitPrice: 1000,
-    retryCount: 1,
-    lastError: 'Transaction expired: Blockhash not found (Simulated Fault)',
-    failureCategory: 'BLOCKHASH_EXPIRED',
-    aiDecision: {
-      timestamp: Date.now() - 18200,
-      modelUsed: 'gemini-2.0-flash',
-      wasOverridden: false,
-      latencyMs: 110,
-      decision: {
-        shouldRetry: true,
-        newTipLamports: 10000,
-        delayMs: 2000,
-        splitBundle: false,
-        waitForJitoLeader: false,
-        confidence: 0.99,
-        reasoning: 'Blockhash expired during simulation. Fetching a fresh blockhash and scheduling retry.'
-      }
-    }
-  },
-  {
-    id: 'txn_26f5a7c267684843',
-    signature: '5be3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e',
-    status: 'FINALIZED',
-    createdAt: Date.now() - 30000,
-    simulatedAt: Date.now() - 29500,
-    signedAt: Date.now() - 29000,
-    bundledAt: null,
-    submittedAt: Date.now() - 28500,
-    processedAt: Date.now() - 28000,
-    confirmedAt: Date.now() - 26000,
-    finalizedAt: Date.now() - 22000,
-    failedAt: null,
-    abandonedAt: null,
-    slot: 465671731,
-    leader: 'JitoValidatorNode111111111111111111111111111',
-    bundleId: 'bundle_jito_26f5a',
-    tipLamports: 10000,
-    computeUnitsConsumed: 9500,
-    computeUnitLimit: 30000,
-    computeUnitPrice: 500,
-    retryCount: 0,
-    lastError: null,
-    failureCategory: null
-  },
-  {
-    id: 'txn_d46076b57e0b4d2b',
-    signature: '6be3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e',
-    status: 'FINALIZED',
-    createdAt: Date.now() - 40000,
-    simulatedAt: Date.now() - 39500,
-    signedAt: Date.now() - 39000,
-    bundledAt: null,
-    submittedAt: Date.now() - 38500,
-    processedAt: Date.now() - 38000,
-    confirmedAt: Date.now() - 36000,
-    finalizedAt: Date.now() - 32000,
-    failedAt: null,
-    abandonedAt: null,
-    slot: 465671728,
-    leader: 'ValidatorNode2222222222222222222222222222222',
-    bundleId: 'bundle_jito_d4607',
-    tipLamports: 10000,
-    computeUnitsConsumed: 9500,
-    computeUnitLimit: 30000,
-    computeUnitPrice: 500,
-    retryCount: 0,
-    lastError: null,
-    failureCategory: null
-  },
-  {
-    id: 'txn_6d7ed607afab4a16',
-    signature: '7be3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e',
-    status: 'FINALIZED',
-    createdAt: Date.now() - 50000,
-    simulatedAt: Date.now() - 49500,
-    signedAt: Date.now() - 49000,
-    bundledAt: null,
-    submittedAt: Date.now() - 48500,
-    processedAt: Date.now() - 48000,
-    confirmedAt: Date.now() - 46000,
-    finalizedAt: Date.now() - 42000,
-    failedAt: null,
-    abandonedAt: null,
-    slot: 465671721,
-    leader: 'JitoValidatorNode111111111111111111111111111',
-    bundleId: 'bundle_jito_6d7ed',
-    tipLamports: 10000,
-    computeUnitsConsumed: 9500,
-    computeUnitLimit: 30000,
-    computeUnitPrice: 500,
-    retryCount: 0,
-    lastError: null,
-    failureCategory: null
-  },
-  {
-    id: 'txn_950389a57b734687',
-    signature: '8be3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e',
-    status: 'FINALIZED',
-    createdAt: Date.now() - 60000,
-    simulatedAt: Date.now() - 59500,
-    signedAt: Date.now() - 59000,
-    bundledAt: null,
-    submittedAt: Date.now() - 58500,
-    processedAt: Date.now() - 58000,
-    confirmedAt: Date.now() - 56000,
-    finalizedAt: Date.now() - 52000,
-    failedAt: null,
-    abandonedAt: null,
-    slot: 465671715,
-    leader: 'JitoValidatorNode111111111111111111111111111',
-    bundleId: 'bundle_jito_95038',
-    tipLamports: 10000,
-    computeUnitsConsumed: 9500,
-    computeUnitLimit: 30000,
-    computeUnitPrice: 500,
-    retryCount: 0,
-    lastError: null,
-    failureCategory: null
-  },
-  {
-    id: 'txn_50b9310b86474867',
-    signature: '9be3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e',
-    status: 'FINALIZED',
-    createdAt: Date.now() - 70000,
-    simulatedAt: Date.now() - 69500,
-    signedAt: Date.now() - 69000,
-    bundledAt: null,
-    submittedAt: Date.now() - 68500,
-    processedAt: Date.now() - 68000,
-    confirmedAt: Date.now() - 66000,
-    finalizedAt: Date.now() - 62000,
-    failedAt: null,
-    abandonedAt: null,
-    slot: 465671709,
-    leader: 'JitoValidatorNode111111111111111111111111111',
-    bundleId: 'bundle_jito_50b93',
-    tipLamports: 10000,
-    computeUnitsConsumed: 9500,
-    computeUnitLimit: 30000,
-    computeUnitPrice: 500,
-    retryCount: 0,
-    lastError: null,
-    failureCategory: null
-  },
-  {
-    id: 'txn_57d34b19b7f545ff',
-    signature: 'abe3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e',
-    status: 'FINALIZED',
-    createdAt: Date.now() - 80000,
-    simulatedAt: Date.now() - 79500,
-    signedAt: Date.now() - 79000,
-    bundledAt: null,
-    submittedAt: Date.now() - 78500,
-    processedAt: Date.now() - 78000,
-    confirmedAt: Date.now() - 76000,
-    finalizedAt: Date.now() - 72000,
-    failedAt: null,
-    abandonedAt: null,
-    slot: 465671704,
-    leader: 'JitoValidatorNode111111111111111111111111111',
-    bundleId: 'bundle_jito_57d34',
-    tipLamports: 10000,
-    computeUnitsConsumed: 9500,
-    computeUnitLimit: 30000,
-    computeUnitPrice: 500,
-    retryCount: 0,
-    lastError: null,
-    failureCategory: null
-  },
-  {
-    id: 'txn_fb38f60ad97c40fd',
-    signature: 'bbe3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e',
-    status: 'FINALIZED',
-    createdAt: Date.now() - 90000,
-    simulatedAt: Date.now() - 89500,
-    signedAt: Date.now() - 89000,
-    bundledAt: null,
-    submittedAt: Date.now() - 88500,
-    processedAt: Date.now() - 88000,
-    confirmedAt: Date.now() - 86000,
-    finalizedAt: Date.now() - 82000,
-    failedAt: null,
-    abandonedAt: null,
-    slot: 465671699,
-    leader: 'JitoValidatorNode111111111111111111111111111',
-    bundleId: 'bundle_jito_fb38f',
-    tipLamports: 10000,
-    computeUnitsConsumed: 9500,
-    computeUnitLimit: 30000,
-    computeUnitPrice: 500,
-    retryCount: 0,
-    lastError: null,
-    failureCategory: null
-  },
-  {
-    id: 'txn_5ef3cd816d0c4711',
-    signature: 'cbe3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e',
-    status: 'FINALIZED',
-    createdAt: Date.now() - 100000,
-    simulatedAt: Date.now() - 99500,
-    signedAt: Date.now() - 99000,
-    bundledAt: null,
-    submittedAt: Date.now() - 98500,
-    processedAt: Date.now() - 98000,
-    confirmedAt: Date.now() - 96000,
-    finalizedAt: Date.now() - 92000,
-    failedAt: null,
-    abandonedAt: null,
-    slot: 465671699,
-    leader: 'JitoValidatorNode111111111111111111111111111',
-    bundleId: 'bundle_jito_5ef3c',
-    tipLamports: 10000,
-    computeUnitsConsumed: 9500,
-    computeUnitLimit: 30000,
-    computeUnitPrice: 500,
-    retryCount: 0,
-    lastError: null,
-    failureCategory: null
-  }
-];
-
 export default function Dashboard() {
-  const [apiUrl, setApiUrl] = useState<string>('http://localhost:3001');
-  const [tempApiUrl, setTempApiUrl] = useState<string>('http://localhost:3001');
-  const [showSettings, setShowSettings] = useState(false);
   const [health, setHealth] = useState<any>(null);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -462,22 +134,10 @@ export default function Dashboard() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const [isDemoMode, setIsDemoMode] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
-  // Load configured API URL from localStorage on client-side mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedUrl = localStorage.getItem('solstice_api_url') || process.env['NEXT_PUBLIC_API_URL'];
-      if (storedUrl) {
-        setApiUrl(storedUrl);
-        setTempApiUrl(storedUrl);
-      }
-    }
-  }, []);
-
   const fetchJson = async <T,>(path: string): Promise<T> => {
-    const response = await fetch(`${apiUrl}${path}`);
+    const response = await fetch(`${API_BASE}${path}`);
     if (!response.ok) throw new Error(`${path} returned ${response.status}`);
     return (await response.json()) as T;
   };
@@ -496,171 +156,20 @@ export default function Dashboard() {
       // Sync live AI decisions counter from backend truth
       const aiCount = txResponse.filter((tx) => tx.aiDecision != null || tx.retryCount > 0).length;
       setLiveAiDecisionsCount(aiCount);
-      setIsDemoMode(false);
     } catch (error) {
-      if (!isDemoMode) {
-        setIsDemoMode(true);
-        setHealth({
-          stream: { status: 'healthy', message: 'Demo Stream Active' },
-          rpc: { status: 'healthy', latencyMs: 25 },
-          postgres: { status: 'healthy', latencyMs: 2 },
-          jito: { status: 'healthy' }
-        });
-        setReadiness(MOCK_READINESS);
-        setTransactions(MOCK_TRANSACTIONS);
-      }
+      setLoadError(error instanceof Error ? error.message : String(error));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const simulateClientTx = (type: 'standard' | 'expired') => {
-    const txId = 'txn_' + Math.random().toString(16).slice(2, 10) + Math.random().toString(16).slice(2, 10);
-    const newTx: Transaction = {
-      id: txId,
-      signature: null,
-      status: 'CREATED',
-      createdAt: Date.now(),
-      simulatedAt: null,
-      signedAt: null,
-      bundledAt: null,
-      submittedAt: null,
-      processedAt: null,
-      confirmedAt: null,
-      finalizedAt: null,
-      failedAt: null,
-      abandonedAt: null,
-      slot: null,
-      leader: null,
-      bundleId: null,
-      tipLamports: 10000,
-      computeUnitsConsumed: null,
-      computeUnitLimit: 30000,
-      computeUnitPrice: 500,
-      retryCount: 0,
-      lastError: null,
-      failureCategory: null
-    };
-
-    setTransactions((prev) => [newTx, ...prev]);
-
-    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-    const runSimulation = async () => {
-      // Step 1: Simulate
-      await delay(600);
-      newTx.status = 'SIMULATED';
-      newTx.simulatedAt = Date.now();
-      setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
-
-      // Step 2: Sign
-      await delay(600);
-      newTx.status = 'SIGNED';
-      newTx.signedAt = Date.now();
-      setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
-
-      if (type === 'standard') {
-        // Step 3: Route (Submit)
-        await delay(600);
-        newTx.status = 'SUBMITTED';
-        newTx.submittedAt = Date.now();
-        newTx.bundleId = 'bundle_jito_' + txId.slice(4, 9);
-        newTx.leader = leaderInfo?.validator || 'JitoValidatorNode111111111111111111111111111';
-        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
-
-        // Step 4: Process
-        await delay(800);
-        newTx.status = 'PROCESSED';
-        newTx.processedAt = Date.now();
-        newTx.slot = currentSlot;
-        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
-
-        // Step 5: Confirm
-        await delay(1200);
-        newTx.status = 'CONFIRMED';
-        newTx.confirmedAt = Date.now();
-        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
-
-        // Step 6: Finalize
-        await delay(2000);
-        newTx.status = 'FINALIZED';
-        newTx.finalizedAt = Date.now();
-        newTx.signature = '5e' + Math.random().toString(16).slice(2, 10) + 'c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e';
-        newTx.computeUnitsConsumed = 9500;
-        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
-      } else {
-        // Expired Blockhash Scenario
-        // Step 3: Route (Submit)
-        await delay(600);
-        newTx.status = 'SUBMITTED';
-        newTx.submittedAt = Date.now();
-        newTx.leader = leaderInfo?.validator || 'JitoValidatorNode111111111111111111111111111';
-        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
-
-        // Step 4: Fail due to expiry
-        await delay(1200);
-        newTx.status = 'FAILED';
-        newTx.failedAt = Date.now();
-        newTx.lastError = 'Transaction expired: Blockhash not found (Simulated Fault)';
-        newTx.failureCategory = 'BLOCKHASH_EXPIRED';
-        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
-
-        // Step 5: Recover (Retry queue)
-        await delay(1500);
-        newTx.status = 'RETRYING';
-        newTx.retryCount = 1;
-        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
-
-        // Step 6: Resubmit (Submit attempt 2)
-        await delay(800);
-        newTx.status = 'SUBMITTED';
-        newTx.submittedAt = Date.now();
-        newTx.leader = 'StandardRPCNode111111111111111111111111111';
-        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
-
-        // Step 7: Process
-        await delay(800);
-        newTx.status = 'PROCESSED';
-        newTx.processedAt = Date.now();
-        newTx.slot = (currentSlot || 465671900) + 1;
-        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
-
-        // Step 8: Confirm
-        await delay(1200);
-        newTx.status = 'CONFIRMED';
-        newTx.confirmedAt = Date.now();
-        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
-
-        // Step 9: Finalize
-        await delay(2000);
-        newTx.status = 'FINALIZED';
-        newTx.finalizedAt = Date.now();
-        newTx.signature = '8b' + Math.random().toString(16).slice(2, 10) + 'c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e5be3c5c26f7b440e';
-        newTx.computeUnitsConsumed = 9500;
-        setTransactions((prev) => prev.map((t) => (t.id === txId ? { ...newTx } : t)));
-      }
-    };
-
-    runSimulation();
-  };
-
-  // Health probe hook
   useEffect(() => {
     refreshData();
-  }, [apiUrl]);
-
-  // Decoupled connection & WS polling hook (only runs when NOT in demo mode)
-  useEffect(() => {
-    if (isDemoMode) return;
-
     const healthInterval = setInterval(refreshData, 5000);
+    const ageInterval = setInterval(() => setSlotAge((prev) => prev + 50), 50);
 
     const connectWs = () => {
-      const normalizedApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
-      const wsUrl = process.env['NEXT_PUBLIC_WS_URL'] || 
-        (normalizedApiUrl.startsWith('https') 
-          ? normalizedApiUrl.replace('https://', 'wss://') 
-          : normalizedApiUrl.replace('http://', 'ws://')) + '/ws';
+      const wsUrl = process.env['NEXT_PUBLIC_WS_URL'] || (API_BASE.startsWith('https') ? API_BASE.replace('https://', 'wss://') : API_BASE.replace('http://', 'ws://')) + '/ws';
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
       ws.onopen = () => setConnected(true);
@@ -702,63 +211,17 @@ export default function Dashboard() {
     connectWs();
     return () => {
       clearInterval(healthInterval);
+      clearInterval(ageInterval);
       wsRef.current?.close();
     };
-  }, [apiUrl, isDemoMode]);
-
-  // Decoupled client-side simulation hook (only runs when in demo mode)
-  useEffect(() => {
-    if (!isDemoMode) return;
-
-    // Initialize slots
-    setCurrentSlot(465672000);
-    setLeaderInfo({ validator: 'JitoValidatorNode111111111111111111111111111', isJitoValidator: true });
-
-    const slotInterval = setInterval(() => {
-      setCurrentSlot((prev) => {
-        const next = (prev || 465672000) + 1;
-        setSlotAge(0);
-        
-        // Rotate leader every 4 slots
-        if (next % 4 === 0) {
-          const mockValidators = [
-            { validator: 'JitoValidatorNode111111111111111111111111111', isJitoValidator: true },
-            { validator: 'JitoValidatorNode222222222222222222222222222', isJitoValidator: true },
-            { validator: 'StandardRPCNode111111111111111111111111111', isJitoValidator: false },
-            { validator: 'StandardRPCNode222222222222222222222222222', isJitoValidator: false }
-          ];
-          const randomLeader = mockValidators[Math.floor(Math.random() * mockValidators.length)];
-          setLeaderInfo(randomLeader);
-        }
-        return next;
-      });
-    }, 400);
-
-    const ageInterval = setInterval(() => {
-      setSlotAge((prev) => prev + 50);
-    }, 50);
-
-    return () => {
-      clearInterval(slotInterval);
-      clearInterval(ageInterval);
-    };
-  }, [isDemoMode]);
+  }, []);
 
   const submitTransaction = async (path: string, successMessage: string) => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     setNotice(null);
-
-    if (isDemoMode) {
-      const type = path.includes('expired') ? 'expired' : 'standard';
-      simulateClientTx(type);
-      setNotice({ type: 'success', message: successMessage });
-      setIsSubmitting(false);
-      return;
-    }
-
     try {
-      const response = await fetch(`${apiUrl}${path}`, { method: 'POST' });
+      const response = await fetch(`${API_BASE}${path}`, { method: 'POST' });
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.error || 'Backend rejected the submission.');
       setNotice({ type: 'success', message: successMessage });
@@ -814,7 +277,7 @@ export default function Dashboard() {
   }, [transactions]);
 
   const pipelineSteps = [
-    { label: 'Stream', state: connected || isDemoMode ? 'Live' : 'Retrying' },
+    { label: 'Stream', state: connected ? 'Live' : 'Retrying' },
     { label: 'Build', state: 'Versioned TX' },
     { label: 'Simulate', state: 'Preflight' },
     { label: 'Route', state: readiness?.claims.rpcFallbackDisclosed ? 'RPC fallback' : 'Jito' },
@@ -840,7 +303,7 @@ export default function Dashboard() {
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-lg font-bold tracking-tight text-white">Solstice</h1>
                   <Pill tone="amber">Devnet fallback lane</Pill>
-                  <Pill tone={connected || isDemoMode ? 'emerald' : 'rose'}>{connected || isDemoMode ? (isDemoMode ? 'Live simulation active' : 'Live stream active') : 'Reconnecting'}</Pill>
+                  <Pill tone={connected ? 'emerald' : 'rose'}>{connected ? 'Live stream' : 'Reconnecting'}</Pill>
                 </div>
                 <p className="mt-0.5 text-xs text-zinc-400">
                   Validator-aware transaction infrastructure. Smart routing, AI-guided recovery.
@@ -887,18 +350,6 @@ export default function Dashboard() {
                 <RefreshCw className="h-4 w-4" aria-hidden="true" />
                 Refresh
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setTempApiUrl(apiUrl);
-                  setShowSettings(true);
-                }}
-                className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-semibold text-zinc-200 transition-all duration-200 hover:bg-white/[0.08] hover:text-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                title="Connection Settings"
-              >
-                <Sliders className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Settings</span>
-              </button>
             </div>
           </div>
         </header>
@@ -906,7 +357,6 @@ export default function Dashboard() {
         <div className="space-y-6">
           {notice && <NoticeBar notice={notice} />}
           {loadError && <ErrorBar message={loadError} onRetry={refreshData} />}
-          {/* Silently run client-side simulation - no warning banners displayed */}
 
           {/* ── KPI Strip ── */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -1152,82 +602,6 @@ export default function Dashboard() {
           </footer>
         </div>
       </div>
-
-      {/* ── Connection Settings Modal ── */}
-      {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c0d12]/95 p-6 shadow-2xl backdrop-blur-xl animate-fade-in">
-            <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
-              <h2 className="text-sm font-bold text-zinc-200 tracking-tight flex items-center gap-2">
-                <Sliders className="h-4 w-4 text-emerald-400" />
-                Backend Connection Settings
-              </h2>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="text-zinc-400 hover:text-white transition-all p-1 hover:bg-white/[0.04] rounded-lg"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            
-            <div className="mt-4 space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5">
-                  Backend API URL
-                </label>
-                <input
-                  type="text"
-                  value={tempApiUrl}
-                  onChange={(e) => setTempApiUrl(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.02] px-4 py-2.5 font-mono text-xs text-white placeholder-zinc-500 focus:border-emerald-500/50 focus:bg-white/[0.04] focus:outline-none"
-                  placeholder="http://localhost:3001"
-                />
-              </div>
-
-              <div className="rounded-xl border border-blue-500/10 bg-blue-500/[0.02] p-3 text-[10px] text-zinc-400 leading-relaxed">
-                <p className="font-semibold text-blue-300 flex items-center gap-1.5 mb-1">
-                  <Activity className="h-3.5 w-3.5 text-blue-400" />
-                  Mixed Content Security Note
-                </p>
-                Standard browsers block insecure HTTP requests and WebSocket connections from HTTPS web apps. 
-                <ul className="list-disc pl-4 mt-1 space-y-1">
-                  <li>To run locally without blocks, visit the dashboard at <code className="text-zinc-300">http://localhost:3000</code>.</li>
-                  <li>To connect this live dashboard to your local backend, run <code className="text-zinc-300">ngrok http 3001</code> and enter the generated <code className="text-emerald-400">https://...</code> URL here.</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="mt-6 flex items-center justify-end gap-3 border-t border-white/[0.06] pt-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setTempApiUrl('http://localhost:3001');
-                }}
-                className="inline-flex min-h-8 cursor-pointer items-center justify-center rounded-lg border border-white/10 bg-white/[0.02] px-3.5 text-[10px] font-semibold text-zinc-400 transition-all duration-200 hover:bg-white/[0.06] hover:text-zinc-300"
-              >
-                Reset Default
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  let cleanedUrl = tempApiUrl.trim();
-                  if (cleanedUrl.endsWith('/')) {
-                    cleanedUrl = cleanedUrl.slice(0, -1);
-                  }
-                  if (typeof window !== 'undefined') {
-                    localStorage.setItem('solstice_api_url', cleanedUrl);
-                  }
-                  setApiUrl(cleanedUrl);
-                  setShowSettings(false);
-                }}
-                className="inline-flex min-h-8 cursor-pointer items-center justify-center rounded-lg bg-emerald-500 px-4 text-[10px] font-bold uppercase tracking-wider text-[#060709] transition-all duration-200 hover:bg-emerald-400 active:scale-[0.98]"
-              >
-                Save & Reconnect
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }

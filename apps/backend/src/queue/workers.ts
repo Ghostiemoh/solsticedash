@@ -8,7 +8,6 @@ import { Worker, type Job } from 'bullmq';
 import { redisConnectionOptions } from './queues.js';
 import { createChildLogger } from '../telemetry/logger.js';
 import { retryCounter } from '../telemetry/metrics.js';
-import type { RetryPlan } from '../retry/retry-planner.js';
 
 const log = createChildLogger('workers');
 
@@ -19,7 +18,12 @@ export const retryWorker = new Worker(
     const { transactionId, attempt, retryPlan } = job.data as {
       transactionId: string;
       attempt: number;
-      retryPlan: RetryPlan;
+      retryPlan: {
+        shouldRetry: boolean;
+        delayMs: number;
+        newTipLamports: number | null;
+        reasoning: string;
+      };
     };
 
     log.info(

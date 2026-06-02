@@ -183,32 +183,3 @@ graph TD
 *   **Telemetry: Prometheus + Pino**:
     *   Pino provides JSON structured logs with child module metadata tags.
     *   `prom-client` exports scraper-friendly priority fees, latencies, and AI metrics at `/metrics`.
-
----
-
-## 5. Challenge Requirements → Implementation
-
-A "smart transaction stack" must price, size, simulate, route, and recover a transaction autonomously. Each capability maps to a concrete module:
-
-| Required Capability | Implementation | Source Module |
-|---|---|---|
-| Dynamic priority fees | Estimates compute-unit price from recent history, not a constant | `solana/priority-fee-manager.ts` |
-| Compute-budget sizing | Sets CU limit to simulated consumption + headroom | `solana/simulation-engine.ts` |
-| Transaction simulation | `simulateTransaction`, parses logs, extracts CU & errors pre-broadcast | `solana/simulation-engine.ts` |
-| Jito bundle construction | Versioned-tx bundles + tip transfer to random Jito tip account, size/min-tip validation | `jito/bundle-constructor.ts` |
-| Dynamic tip strategy | Live `tip_floor` poll every 60s, p50→p75 by landing rate | `jito/tip-manager.ts` |
-| Bundle status tracking | `getInflightBundleStatuses` poll, landed/dropped events, tip outcomes | `jito/bundle-tracker.ts` |
-| Leader-aware timing | Epoch leader cache, Jito-validator flagging, slot-window timing | `leader/leader-schedule.ts`, `leader/execution-window.ts` |
-| Autonomous retry | 10-category classification, exponential backoff, BullMQ queue | `retry/failure-classifier.ts`, `retry/retry-planner.ts` |
-| AI decisioning + safeguards | Gemini 2.0 Flash, Zod-validated, circuit-breaker → deterministic rules | `ai/decision-engine.ts`, `ai/schema.ts`, `ai/fallback-rules.ts` |
-
-**Protocol answers (brief Q1–Q3):**
-1. **processed → confirmed delta** — time for an included block to earn supermajority votes; low under health, widening under congestion (use higher fees / wait).
-2. **Never fetch a blockhash at `finalized`** — it is 31+ slots (~13s) old, shrinking the 150-slot validity window to ~118 and raising expiry risk; fetch at `confirmed`/`processed`.
-3. **Jito leader skips its slot** — the bundle is routed only to that leader, so a skip drops it permanently (no fees/tips paid); Solstice detects the miss via bundle-status timeout and resubmits to the next Jito leader.
-
----
-
-## 6. On-Chain Evidence Log
-
-Ten real Devnet transactions (slots verifiable on Solana Explorer): eight standard transfers and two fault-injected expired-blockhash failures that recover autonomously. The full table with explorer links lives in the [README](../README.md#-transaction-lifecycle-compliance-log) and on the [hosted architecture page](https://solsticedash.vercel.app/architecture.html). Mainnet Jito bundle-ID proof rows are appended after the capped mainnet proof run.

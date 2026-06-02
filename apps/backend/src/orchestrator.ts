@@ -32,7 +32,7 @@ import { bundleSender } from './jito/bundle-sender.js';
 import { bundleTracker } from './jito/bundle-tracker.js';
 import { tipManager } from './jito/tip-manager.js';
 import { dropAnalyzer } from './jito/drop-analyzer.js';
-import { retryPlanner, type RetryPlan } from './retry/retry-planner.js';
+import { retryPlanner } from './retry/retry-planner.js';
 import { slotTracker } from './streaming/slot-tracker.js';
 import { leaderSchedule } from './leader/leader-schedule.js';
 import { executionWindow } from './leader/execution-window.js';
@@ -77,10 +77,8 @@ export class Orchestrator {
 
   /**
    * Execute a transaction retry. Called by BullMQ queue worker.
-   * The full retry plan (tip, compute, leader-wait, split, rebroadcast)
-   * is threaded into the pipeline rather than only the tip override.
    */
-  async retryTransaction(transactionId: string, retryPlan: RetryPlan): Promise<void> {
+  async retryTransaction(transactionId: string, retryPlan: any): Promise<void> {
     const lifecycle = lifecycleTracker.get(transactionId);
     if (!lifecycle) {
       log.error({ transactionId }, 'retry failed: transaction not found in tracker');
@@ -93,19 +91,13 @@ export class Orchestrator {
       return;
     }
 
-    log.info(
-      {
-        transactionId,
-        attempt: lifecycle.retryCount,
-        source: retryPlan.source,
-        waitForJitoLeader: retryPlan.waitForJitoLeader,
-        splitBundle: retryPlan.splitBundle,
-        rebroadcast: retryPlan.rebroadcast,
-      },
-      'executing transaction retry with full plan',
-    );
+    log.info({ transactionId, attempt: lifecycle.retryCount }, 'executing transaction retry');
 
-    this.processTransaction(lifecycle, instructions, retryPlan).catch((error) => {
+    this.processTransaction(
+      lifecycle,
+      instructions,
+      retryPlan.newTipLamports ?? undefined,
+    ).catch((error) => {
       log.error({ transactionId, error: String(error) }, 'retry processing error');
       lifecycleTracker.transition(transactionId, TransactionStatus.FAILED, {
         lastError: String(error),
@@ -116,24 +108,12 @@ export class Orchestrator {
   private async processTransaction(
     lifecycle: TransactionLifecycle,
     instructions: TransactionInstruction[],
-    retryPlan?: RetryPlan,
+    overrideTipLamports?: number,
   ): Promise<void> {
     try {
-      const overrideTipLamports = retryPlan?.newTipLamports ?? undefined;
-
-      // A split-bundle directive is acknowledged deterministically: the current
-      // pipeline submits a single-transaction bundle, so there is nothing to
-      // split. We log it for evidence rather than silently dropping the signal.
-      if (retryPlan?.splitBundle) {
-        log.info(
-          { transactionId: lifecycle.id },
-          'AI requested splitBundle — single-tx bundle, proceeding as one bundle',
-        );
-      }
-
       // 1. Estimate base priority fee
       const recommendedFee = priorityFeeManager.getRecommendedFee();
-
+      
       // 2. Build Transaction
       const useExpired = lifecycle.metadata?.['forceExpiredBlockhash'] && lifecycle.retryCount === 0;
       const buildResult = await transactionBuilder.build({
@@ -154,18 +134,13 @@ export class Orchestrator {
       const tipAmount = overrideTipLamports ?? tipManager.getRecommendedTip();
       const tipAccount = bundleConstructor.getRandomTipAccount();
       const tipInstruction = bundleConstructor.createTipInstruction(tipAmount, tipAccount);
-
-      // Honor an AI/fallback compute-unit override (e.g. COMPUTE_EXHAUSTED),
-      // otherwise size the limit from simulated consumption plus headroom.
-      const computeUnitLimit =
-        retryPlan?.adjustComputeUnits ?? (simResult.computeUnitsConsumed ?? 200000) + 150;
-
+      
       // We append the tip instruction to the standard instructions
       const finalInstructions = [...instructions, tipInstruction];
       const finalBuild = await transactionBuilder.build({
         instructions: finalInstructions,
         computeUnitPrice: recommendedFee,
-        computeUnitLimit,
+        computeUnitLimit: (simResult.computeUnitsConsumed ?? 200000) + 150,
       });
       const finalTx = finalBuild.transaction;
       
@@ -199,10 +174,8 @@ export class Orchestrator {
         tipLamports: tipAmount,
       });
 
-      // 6. Wait for optimal execution window. A retry plan that asks to wait
-      // for the next Jito leader (leader-miss / bundle-drop recovery) forces
-      // the scheduler to hold until that validator's slot window.
-      await this.waitForOptimalWindow(retryPlan?.waitForJitoLeader ?? false);
+      // 6. Wait for optimal execution window
+      await this.waitForOptimalWindow();
 
       // 7. Send Bundle
       let jitoId: string;
@@ -226,25 +199,6 @@ export class Orchestrator {
 
         bundleTracker.track(bundleRecord);
         eventBus.emit(EVENTS.BUNDLE_SENT, bundleRecord);
-
-        // Honor a rebroadcast directive (e.g. RPC_FAILURE recovery): in addition
-        // to the Jito bundle, push the signed tx straight to the RPC cluster so
-        // it can land via the regular mempool if the bundle is dropped.
-        if (retryPlan?.rebroadcast) {
-          try {
-            const conn = rpcManager.getConnection();
-            await conn.sendRawTransaction(finalTx.serialize(), {
-              skipPreflight: true,
-              preflightCommitment: 'processed',
-            });
-            log.info({ transactionId: lifecycle.id }, 'rebroadcast signed tx via direct RPC alongside Jito bundle');
-          } catch (rebroadcastError) {
-            log.warn(
-              { transactionId: lifecycle.id, error: String(rebroadcastError) },
-              'rebroadcast via direct RPC failed (bundle still in flight)',
-            );
-          }
-        }
       } catch (jitoError) {
         log.warn(
           { transactionId: lifecycle.id, error: String(jitoError) },
@@ -254,7 +208,7 @@ export class Orchestrator {
         const fallbackBuild = await transactionBuilder.build({
           instructions: instructions,
           computeUnitPrice: recommendedFee,
-          computeUnitLimit,
+          computeUnitLimit: (simResult.computeUnitsConsumed ?? 200000) + 150,
           recentBlockhash: useExpired ? '11111111111111111111111111111111' : undefined,
         });
         const fallbackTx = fallbackBuild.transaction;
@@ -310,22 +264,12 @@ export class Orchestrator {
     }
   }
 
-  private async waitForOptimalWindow(forceJitoWait = false): Promise<void> {
+  private async waitForOptimalWindow(): Promise<void> {
     const currentSlot = slotTracker.getCurrentSlot();
     const analysis = executionWindow.analyze(currentSlot, 'MODERATE' as any, true);
-
-    const shouldWait =
-      analysis.recommendedAction === 'wait_for_jito' ||
-      analysis.recommendedAction === 'delay_congestion' ||
-      // A forced Jito wait holds until the next Jito leader window even when the
-      // generic window score is otherwise acceptable.
-      (forceJitoWait && analysis.estimatedDelayMs > 0);
-
-    if (shouldWait && analysis.estimatedDelayMs > 0) {
-      log.debug(
-        { delayMs: analysis.estimatedDelayMs, reason: forceJitoWait ? 'forced_jito_wait' : analysis.recommendedAction },
-        'delaying for optimal window',
-      );
+    
+    if (analysis.recommendedAction === 'wait_for_jito' || analysis.recommendedAction === 'delay_congestion') {
+      log.debug({ delayMs: analysis.estimatedDelayMs, reason: analysis.recommendedAction }, 'delaying for optimal window');
       await new Promise((resolve) => setTimeout(resolve, analysis.estimatedDelayMs));
     }
   }

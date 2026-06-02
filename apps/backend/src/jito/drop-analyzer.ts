@@ -13,11 +13,6 @@ import { tipManager } from './tip-manager.js';
 
 const log = createChildLogger('drop-analyzer');
 
-// A bundle that remains pending well beyond its target leader window was almost
-// certainly routed to a Jito leader that skipped its slot, rather than losing an
-// auction on tip. Past this threshold we classify the drop as a leader miss.
-const LEADER_SKIP_TIMEOUT_MS = 10_000;
-
 export interface DropAnalysis {
   probableCause: FailureCategory;
   recommendedTip: number;
@@ -30,17 +25,7 @@ export class DropAnalyzer {
    */
   async analyzeDrop(bundleRecord: BundleRecord): Promise<DropAnalysis> {
     const elapsedMs = Date.now() - bundleRecord.sentAt;
-
-    // Leader skip: the bundle sat pending past the target leader window without
-    // landing. Resubmit targeting the next Jito leader rather than just bumping tip.
-    if (elapsedMs > LEADER_SKIP_TIMEOUT_MS) {
-      return {
-        probableCause: FailureCategory.LEADER_MISS,
-        recommendedTip: tipManager.getRecommendedTip(),
-        reason: `Bundle stayed pending ${Math.round(elapsedMs / 1000)}s past submission — targeted Jito leader likely skipped its slot; resubmitting to next Jito leader.`,
-      };
-    }
-
+    
     // Check if the tip was below recent successful tips
     const recommendedTip = tipManager.getRecommendedTip();
     if (bundleRecord.tipLamports < recommendedTip) {

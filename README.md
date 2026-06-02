@@ -2,9 +2,6 @@
 
 **Validator-Aware Smart Transaction Execution & Intelligence Infrastructure for Solana**
 
-> 🚀 **Live Telemetry Dashboard**: [https://solsticedash.vercel.app](https://solsticedash.vercel.app)
-> 📄 **Public Architecture Document**: [https://solsticedash.vercel.app/architecture.html](https://solsticedash.vercel.app/architecture.html)
-
 Solstice is a production-grade transaction execution engine designed to maximize Solana transaction landing probability. It combines real-time slot and leader scheduling telemetry with Jito bundle submission, dynamic tip management, and an AI-driven autonomous retry engine.
 
 ---
@@ -136,21 +133,12 @@ Start the backend transaction gateway and telemetry dashboard in development mod
 cd apps/backend
 pnpm run dev
 
-# In terminal 2 (starts Next.js app at http://localhost:3000 or view live at https://solsticedash.vercel.app)
+# In terminal 2 (starts Next.js app at http://localhost:3000)
 cd apps/dashboard
 pnpm run dev
 ```
 
 ### 5. Testing and Fault Injection
-*   Open the Dashboard at [https://solsticedash.vercel.app](https://solsticedash.vercel.app) (or locally at `http://localhost:3000`).
+*   Open the Dashboard at `http://localhost:3000`.
 *   Click **Test Transaction** to submit a standard transfer directly to the Solana Devnet RPC cluster.
 *   Click **Simulate Expired Blockhash** to execute our fault injection simulation. The dashboard will show the transaction fail, register the poller timeout, schedule a BullMQ retry, and succeed on-chain with a fresh blockhash!
-
-### 6. Unit Tests
-The deterministic core of the retry engine is covered by a Vitest suite (failure classification, AI fallback rules, the AI decision schema and safeguards, the lifecycle state machine, Jito bundle validation, tip-manager metrics, and backoff math):
-```bash
-cd apps/backend
-pnpm test          # runs the full suite once
-pnpm test:watch    # watch mode
-```
-These tests run fully offline — no RPC, Redis, or Gemini credentials required.

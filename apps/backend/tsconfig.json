@@ -4,13 +4,12 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "types": ["node"],
-    "noImplicitAny": false,
     "paths": {
       "@solstice/shared": ["../../packages/shared/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "src/__tests__", "src/**/*.test.ts", "vitest.config.ts", "vitest.setup.ts"],
+  "exclude": ["node_modules", "dist", "src/__tests__"],
   "references": [
     { "path": "../../packages/shared" }
   ]

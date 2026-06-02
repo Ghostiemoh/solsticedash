@@ -41,5 +41,3 @@ coverage/
 
 # Generated
 apps/backend/src/generated/
-
-.vercel
