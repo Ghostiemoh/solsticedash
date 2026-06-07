@@ -556,7 +556,7 @@ export default function Dashboard() {
               <div>
                 <h2 className="text-sm font-bold text-zinc-200 tracking-tight">Evidence ledger</h2>
                 <p className="mt-0.5 text-xs text-zinc-500">
-                  Newest transactions first. Expand a row when a judge asks, "prove it."
+                  Newest transactions first. Expand a row when a judge asks, {"\"prove it.\""}
                 </p>
               </div>
               {stats.latest && (
