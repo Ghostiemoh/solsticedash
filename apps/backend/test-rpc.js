@@ -2,9 +2,19 @@ import dns from 'dns';
 dns.setDefaultResultOrder('ipv4first');
 
 import { Connection } from '@solana/web3.js';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const HELIUS_DEVNET = 'https://devnet.helius-rpc.com/?api-key=36e64526-b465-4f79-acab-3495ac4d14c7';
-const SOLANA_DEVNET = 'https://api.devnet.solana.com';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load env from current directory first, fallback to root directory
+dotenv.config({ path: path.join(__dirname, '.env') });
+dotenv.config({ path: path.join(__dirname, '../..', '.env') });
+
+const HELIUS_DEVNET = process.env.SOLANA_DEVNET_RPC_URL || 'https://devnet.helius-rpc.com/?api-key=YOUR_HELIUS_KEY';
+const SOLANA_DEVNET = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
 
 async function testFetch(url, name) {
   console.log(`[Fetch] Testing ${name} (${url})...`);

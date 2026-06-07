@@ -41,3 +41,9 @@ coverage/
 
 # Generated
 apps/backend/src/generated/
+
+# Vercel
+.vercel/
+
+# Local SQLite databases
+apps/backend/prisma/dev.db
