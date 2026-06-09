@@ -10,7 +10,6 @@ import { env } from '../config/env.js';
 import { createChildLogger } from '../telemetry/logger.js';
 import { EVENTS, type BundleRecord, BundleStatus } from '@solstice/shared';
 import { eventBus } from '../events/event-bus.js';
-import { tipManager } from './tip-manager.js';
 import { prisma } from '../db/prisma-client.js';
 
 const log = createChildLogger('bundle-tracker');
@@ -39,7 +38,10 @@ export class BundleTracker {
   private readonly endpoint: string;
 
   constructor() {
-    this.endpoint = env.JITO_BLOCK_ENGINE_URL.split(',')[0]!.trim();
+    // Jito status methods (getInflightBundleStatuses) live at /api/v1/bundles,
+    // same as sendBundle. The bare host returns 404.
+    const base = env.JITO_BLOCK_ENGINE_URL.split(',')[0]!.trim().replace(/\/+$/, '');
+    this.endpoint = base.endsWith('/api/v1/bundles') ? base : `${base}/api/v1/bundles`;
   }
 
   /**
@@ -127,8 +129,10 @@ export class BundleTracker {
       record.status = BundleStatus.LANDED;
       record.landedAt = Date.now();
       record.slot = status.landed_slot;
-      
-      tipManager.recordOutcome(record.tipLamports, true);
+
+      // Tip accounting is owned by the orchestrator's on-chain confirmation
+      // (authoritative + rate-limit-proof). This tracker only updates status
+      // and emits liveness events, to avoid double-counting the tip outcome.
       eventBus.emit(EVENTS.BUNDLE_LANDED, record);
       
       // Update bundle in database in background
@@ -154,8 +158,8 @@ export class BundleTracker {
     } else if (status.status === 'Failed') {
       record.status = BundleStatus.DROPPED;
       record.rejectedAt = Date.now();
-      
-      tipManager.recordOutcome(record.tipLamports, false);
+
+      // Tip accounting is owned by the orchestrator (see above).
       eventBus.emit(EVENTS.BUNDLE_DROPPED, record);
 
       // Update bundle in database in background

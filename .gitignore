@@ -36,6 +36,9 @@ docker/data/
 *.log
 logs/
 
+# Runtime PID files
+*.pid
+
 # Test coverage
 coverage/
 

@@ -31,15 +31,19 @@ export interface BundleConstructionOptions {
   tipAccount: string;
 }
 
+// The 8 official Jito mainnet tip accounts (fetched live from the block engine's
+// getTipAccounts on 2026-06-08). A bundle MUST transfer to one of these to be
+// eligible for the auction, otherwise Jito rejects it with
+// "Bundles must write lock at least one tip account to be eligible".
 const SEED_TIP_ACCOUNTS: string[] = [
-  '96a29pnMqJmJVAYMRutJmUsX35S2WcY1mUJsVWJmg3m1',
-  'Hf8tjUDBesWsjAH756e2xmd8gBiVaJaGuwCWGNziAYrV',
-  'Cw8CFBTM45ecsqaf7aQ6Y1wjakgY65Q3X539BJD3tcee',
-  'ADa5GDGLn2s5L56bJb4Y4h4yZ6K15WJmg3m1AAYrVcee',
-  'ADu351hg6o4AhrGgZ2zt54J2Z1j9ncR12nc1AAYrVcee',
-  'DttWaMuDTnW6NMGBw2CrrEjWqvm4W5D965kiSyK28kUj',
-  '3AVaG8o6KAQNeH49p1nNncR1ncR1AAYrVceec1AAYrVc',
-  'GoLmudTGnWaMuDTnW6NMGBw2CrrEjWqvm4W5D965kiSy',
+  'ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt',
+  'DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh',
+  'HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe',
+  'Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY',
+  'DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL',
+  '3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT',
+  'ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49',
+  '96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5',
 ];
 
 export class BundleConstructor {

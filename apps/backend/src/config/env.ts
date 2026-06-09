@@ -24,10 +24,21 @@ const booleanSchema = z.preprocess(
 const envSchema = z.object({
   // Solana RPC
   SOLANA_RPC_URL: z.string().url('SOLANA_RPC_URL must be a valid URL'),
+  // Explicit WebSocket endpoint. When unset, derived from SOLANA_RPC_URL by
+  // swapping the scheme (https→wss), which is correct for solinfra.
+  SOLANA_WS_URL: z.string().url().optional(),
   SOLANA_RPC_BACKUP_URL: z.string().url().optional(),
   SOLANA_DEVNET_RPC_URL: z.string().url().optional(),
-  SOLANA_NETWORK: z.enum(['mainnet-beta', 'devnet']).default('devnet'),
+  SOLANA_NETWORK: z.enum(['mainnet-beta', 'devnet']).default('mainnet-beta'),
   MOCK_MODE: booleanSchema.default(false),
+
+  // SWQoS (stake-weighted) submission endpoint — transactions sent here are
+  // forwarded through the provider's staked validator connections for higher
+  // landing probability. Falls back to the primary RPC if unset.
+  SWQOS_RPC_URL: z.string().url().optional(),
+  // solinfra REST data API (server-to-server). Not required by the core
+  // pipeline; available for balance/account REST lookups.
+  SOLINFRA_REST_API_URL: z.string().url().optional(),
 
   // Yellowstone gRPC
   YELLOWSTONE_GRPC_URL: z.string().min(1, 'YELLOWSTONE_GRPC_URL is required'),

@@ -29,7 +29,13 @@ export class BundleSender {
   private readonly endpoints: string[];
 
   constructor() {
-    this.endpoints = env.JITO_BLOCK_ENGINE_URL.split(',').map((u) => u.trim());
+    // Jito's `sendBundle` JSON-RPC is served at `/api/v1/bundles`. Posting to the
+    // bare block-engine host returns HTTP 404, which silently forces every bundle
+    // onto the RPC fallback. Normalize each configured endpoint to the bundles path.
+    this.endpoints = env.JITO_BLOCK_ENGINE_URL.split(',')
+      .map((u) => u.trim().replace(/\/+$/, ''))
+      .filter((u) => u.length > 0)
+      .map((u) => (u.endsWith('/api/v1/bundles') ? u : `${u}/api/v1/bundles`));
     if (this.endpoints.length === 0) {
       throw new Error('JITO_BLOCK_ENGINE_URL must contain at least one endpoint');
     }
@@ -80,12 +86,15 @@ export class BundleSender {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload),
             }),
-            10000,
+            20000,
             `Jito RPC POST ${endpoint}`,
           );
 
           if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const body = await response.text().catch(() => '');
+            throw new Error(
+              `HTTP ${response.status}: ${response.statusText}${body ? ` — ${body.slice(0, 400)}` : ''}`,
+            );
           }
 
           const data = (await response.json()) as JitoResponse;

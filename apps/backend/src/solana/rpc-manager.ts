@@ -13,6 +13,20 @@ import { rpcLatencyHistogram, rpcErrorCounter } from '../telemetry/metrics.js';
 
 const log = createChildLogger('rpc-manager');
 
+/**
+ * Derive the WebSocket endpoint from an HTTP(S) RPC URL by swapping the scheme.
+ * web3.js's automatic derivation mangles provider URLs that carry a path and
+ * `?api_key=` query (it shifts the port and can drop the query), which makes
+ * the `onSlotChange` subscription fail with a 405 upgrade error. solinfra's
+ * documented wss endpoint is the RPC URL with the scheme swapped, so we set it
+ * explicitly. `SOLANA_WS_URL` overrides this when a provider differs.
+ */
+function deriveWsEndpoint(httpUrl: string): string {
+  if (httpUrl.startsWith('https:')) return 'wss:' + httpUrl.slice('https:'.length);
+  if (httpUrl.startsWith('http:')) return 'ws:' + httpUrl.slice('http:'.length);
+  return httpUrl;
+}
+
 interface RpcEndpoint {
   url: string;
   label: string;
@@ -28,6 +42,7 @@ export class RpcManager {
   private endpoints: RpcEndpoint[] = [];
   private activeIndex = 0;
   private readonly defaultCommitment: Commitment;
+  private swqosConnection: Connection | null = null;
 
   constructor(commitment: Commitment = 'confirmed') {
     this.defaultCommitment = commitment;
@@ -62,6 +77,10 @@ export class RpcManager {
         commitment: this.defaultCommitment,
         confirmTransactionInitialTimeout: 30_000,
         disableRetryOnRateLimit: false,
+        wsEndpoint:
+          label === 'primary' && env.SOLANA_WS_URL
+            ? env.SOLANA_WS_URL
+            : deriveWsEndpoint(url),
       }),
       isHealthy: true,
       avgLatencyMs: 0,
@@ -80,6 +99,27 @@ export class RpcManager {
       throw new Error('no RPC endpoints configured');
     }
     return endpoint.connection;
+  }
+
+  /**
+   * Get the connection used for landing transactions. When a stake-weighted
+   * (SWQoS) endpoint is configured, transactions are submitted through the
+   * provider's staked validator connections for higher inclusion probability.
+   * Falls back to the active read connection if no SWQoS endpoint is set.
+   */
+  getSubmitConnection(): Connection {
+    if (!env.SWQOS_RPC_URL) {
+      return this.getConnection();
+    }
+    if (!this.swqosConnection) {
+      this.swqosConnection = new Connection(env.SWQOS_RPC_URL, {
+        commitment: this.defaultCommitment,
+        confirmTransactionInitialTimeout: 30_000,
+        disableRetryOnRateLimit: false,
+      });
+      log.info('SWQoS stake-weighted submission endpoint initialized');
+    }
+    return this.swqosConnection;
   }
 
   /**

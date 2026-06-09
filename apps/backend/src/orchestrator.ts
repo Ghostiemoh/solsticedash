@@ -46,6 +46,11 @@ const log = createChildLogger('orchestrator');
 export class Orchestrator {
   private activeDecisions = new Map<string, AiDecisionRecord>();
   private instructionsMap = new Map<string, TransactionInstruction[]>();
+  // lifecycleId → tip lamports for txs sent via the Jito bundle path (not the
+  // RPC fallback). The tip outcome is recorded against the tip manager from the
+  // authoritative on-chain confirmation, since Jito's getInflightBundleStatuses
+  // endpoint is aggressively rate-limited (429) and unreliable for accounting.
+  private jitoRoutedTips = new Map<string, number>();
 
   constructor() {
     this.setupEventListeners();
@@ -198,6 +203,9 @@ export class Orchestrator {
           );
 
         bundleTracker.track(bundleRecord);
+        // Mark this lifecycle as Jito-routed so its tip is accounted as landed
+        // once the transaction finalizes on-chain.
+        this.jitoRoutedTips.set(lifecycle.id, tipAmount);
         eventBus.emit(EVENTS.BUNDLE_SENT, bundleRecord);
       } catch (jitoError) {
         log.warn(
@@ -216,17 +224,21 @@ export class Orchestrator {
         // Sign fallback transaction
         fallbackTx.sign([await import('./solana/wallet-manager.js').then(m => m.walletManager.getKeypair())]);
         
-        // Send fallback transaction directly to the RPC cluster
-        const connection = rpcManager.getConnection();
+        // Send fallback transaction through the stake-weighted (SWQoS) lane
+        // when configured, otherwise directly to the active RPC cluster.
+        const connection = rpcManager.getSubmitConnection();
         const txSig = await connection.sendRawTransaction(fallbackTx.serialize(), {
           skipPreflight: true,
           preflightCommitment: 'processed',
         });
-        log.info({ transactionId: lifecycle.id, signature: txSig }, 'Transaction submitted directly to Solana RPC cluster');
+        log.info({ transactionId: lifecycle.id, signature: txSig }, 'Transaction submitted via SWQoS/RPC submission lane');
         
         signature = txSig;
         jitoId = `rpc_fallback_${txSig.slice(0, 10)}`;
         bundleRecord.bundleId = jitoId;
+        // This attempt did NOT go through Jito — ensure it is not counted as a
+        // Jito tip landing when it confirms on-chain.
+        this.jitoRoutedTips.delete(lifecycle.id);
 
         // Update fallback bundle in database
         prisma.bundle
@@ -280,6 +292,18 @@ export class Orchestrator {
       this.auditActiveDecision(tx.id, 'SUCCESS');
       this.instructionsMap.delete(tx.id);
 
+      // Authoritative Jito tip accounting: a Jito-routed tx that finalizes
+      // on-chain means its bundle landed and the tip was paid.
+      const jitoTip = this.jitoRoutedTips.get(tx.id);
+      if (jitoTip !== undefined) {
+        tipManager.recordOutcome(jitoTip, true);
+        this.jitoRoutedTips.delete(tx.id);
+        log.info(
+          { transactionId: tx.id, tipLamports: jitoTip, slot: tx.slot },
+          'Jito bundle landing confirmed on-chain — tip recorded as landed',
+        );
+      }
+
       if (tx.bundleId) {
         prisma.bundle
           .update({
@@ -299,6 +323,13 @@ export class Orchestrator {
     eventBus.on(EVENTS.TX_ABANDONED, (tx: any) => {
       this.auditActiveDecision(tx.id, 'ABANDONED');
       this.instructionsMap.delete(tx.id);
+
+      // A Jito-routed tx that is abandoned means its tip never landed.
+      const jitoTip = this.jitoRoutedTips.get(tx.id);
+      if (jitoTip !== undefined) {
+        tipManager.recordOutcome(jitoTip, false);
+        this.jitoRoutedTips.delete(tx.id);
+      }
     });
 
     // Listen for bundle drops to trigger AI retry logic

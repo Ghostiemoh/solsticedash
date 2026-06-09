@@ -13,8 +13,11 @@ process.env.NODE_ENV = 'test';
 process.env.MOCK_MODE = 'true';
 process.env.LOG_LEVEL = 'fatal';
 
-process.env.SOLANA_RPC_URL ??= 'https://api.devnet.solana.com';
-process.env.SOLANA_NETWORK ??= 'devnet';
+process.env.SOLANA_RPC_URL ??= 'https://api.mainnet-beta.solana.com';
+process.env.SOLANA_NETWORK ??= 'mainnet-beta';
+// Pin tip config so tip-manager tests are deterministic regardless of the
+// developer's .env (dotenv loads .env when config/env.ts is imported).
+process.env.JITO_DEFAULT_TIP_LAMPORTS ??= '10000';
 process.env.YELLOWSTONE_GRPC_URL ??= 'http://localhost:10000';
 process.env.YELLOWSTONE_GRPC_TOKEN ??= 'test-token';
 // A real, decodable keypair so wallet-manager construction succeeds.

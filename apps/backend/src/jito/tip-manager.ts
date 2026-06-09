@@ -72,7 +72,7 @@ export class TipManager {
    */
   async fetchJitoTipFloor(): Promise<void> {
     try {
-      const response = await fetch('https://bundles-api-rest.jito.wtf/api/v1/bundles/tip_floor');
+      const response = await fetch('https://bundles.jito.wtf/api/v1/bundles/tip_floor');
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -129,14 +129,15 @@ export class TipManager {
     let baseline = this.currentBaseTip;
 
     if (this.jitoTipFloor) {
-      // Default to median (p50) tip
-      baseline = this.jitoTipFloor.p50;
+      // Balance cost vs landing probability: target the live p75 landed-tip
+      // floor by default (good landing odds without overpaying).
+      baseline = this.jitoTipFloor.p75;
 
-      // Under high congestion or low landing rate, bump to p75
+      // Under low observed landing rate, escalate to the live p95 floor.
       const metrics = this.getPerformanceMetrics();
       if (metrics.landingRate < 0.7 && metrics.totalSent >= 5) {
-        baseline = this.jitoTipFloor.p75;
-        log.debug({ baseline, reason: 'low landing rate (< 70%)' }, 'Tip bumped to Jito p75 percentile');
+        baseline = this.jitoTipFloor.p95;
+        log.debug({ baseline, reason: 'low landing rate (< 70%)' }, 'Tip escalated to Jito p95 percentile');
       }
     } else if (this.tipHistory.length >= 5) {
       // Local history fallback

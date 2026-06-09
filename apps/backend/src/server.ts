@@ -22,6 +22,7 @@ import { leaderTracker } from './streaming/leader-tracker.js';
 import { leaderSchedule } from './leader/leader-schedule.js';
 import { confirmationPoller } from './solana/confirmation-poller.js';
 import { streamHealthMonitor } from './streaming/stream-health.js';
+import { prisma } from './db/prisma-client.js';
 import './queue/workers.js';
 
 const log = createChildLogger('server');
@@ -154,23 +155,77 @@ async function bootstrap(): Promise<void> {
       const finalized = txs.filter((tx) => tx.status === 'FINALIZED');
       const failed = txs.filter((tx) => tx.status === 'FAILED' || tx.status === 'ABANDONED');
       const retried = txs.filter((tx) => tx.retryCount > 0);
-      const rpcFallback = txs.filter((tx) => tx.bundleId?.startsWith('bnd_'));
       const decisions = txs.filter((tx) => tx.aiDecision || tx.retryCount > 0);
       const completeLifecycle = finalized.filter(
         (tx) => tx.processedAt && tx.confirmedAt && tx.finalizedAt,
       );
 
+      // ── Evidence-derived claims (no hardcoded booleans) ──────────────
+      // Direct-RPC fallback executions (Jito submission failed → RPC).
+      const directRpcRecords = txs.filter((tx) =>
+        tx.bundleId?.startsWith('rpc_fallback'),
+      );
+      const tips = tipManager.getPerformanceMetrics();
+
+      // Durable, restart-proof Jito-landing evidence: count persisted bundle rows
+      // that LANDED carrying a real Jito bundle id (not an `rpc_fallback_*`
+      // execution record). In-memory tip metrics reset on restart, so the DB count
+      // is the source of truth; we OR it with the live tip metric.
+      let persistedJitoLandings = 0;
+      try {
+        persistedJitoLandings = await prisma.bundle.count({
+          where: {
+            status: 'LANDED',
+            jitoBundleId: { not: null },
+            NOT: { jitoBundleId: { startsWith: 'rpc_fallback' } },
+          },
+        });
+      } catch (e) {
+        log.warn({ err: String(e) }, 'failed to count persisted Jito landings');
+      }
+      const jitoLandings = Math.max(persistedJitoLandings, tips.totalLanded);
+
+      // Proven ONLY when on mainnet AND a real Jito bundle has actually landed
+      // (tip paid to a Jito tip account). Network string alone proves nothing.
+      const mainnetJitoLandingProven =
+        env.SOLANA_NETWORK === 'mainnet-beta' && jitoLandings > 0;
+
+      // The SWQoS staked lane is only active when an endpoint is configured.
+      const swqosConfigured = !!env.SWQOS_RPC_URL;
+
+      // Disclose the RPC fallback honestly whenever it was used OR whenever Jito
+      // landing is not yet proven — disclosure defaults ON, never off by fiat.
+      const rpcFallbackDisclosed =
+        directRpcRecords.length > 0 || !mainnetJitoLandingProven;
+
+      const mode = mainnetJitoLandingProven
+        ? 'MAINNET_JITO_PROVEN'
+        : env.SOLANA_NETWORK === 'mainnet-beta'
+          ? 'MAINNET_PATH_WIRED' // on mainnet, path wired, landing not yet proven
+          : 'DEVNET_ACCEPTABLE_FALLBACK';
+
+      const nextWork: string[] = [];
+      if (!mainnetJitoLandingProven) {
+        nextWork.push(
+          'Land ≥1 real mainnet Jito bundle on a capped wallet to flip mainnetJitoLandingProven=true (currently gated on tips.totalLanded > 0).',
+        );
+      }
+      if (!swqosConfigured) {
+        nextWork.push(
+          'Wire the solinfra SWQoS staked submit endpoint (IP allowlist + protocol) to enable stake-weighted submission.',
+        );
+      }
+      nextWork.push('Export fresh lifecycle rows after the final demo run.');
+
       return reply.send({
         network: env.SOLANA_NETWORK,
-        mode:
-          env.SOLANA_NETWORK === 'devnet'
-            ? 'DEVNET_ACCEPTABLE_FALLBACK'
-            : 'MAINNET_JITO_PROOF',
+        mode,
         claims: {
           devnetPrototype: true,
           mainnetJitoPathWired: true,
-          mainnetJitoLandingProven: env.SOLANA_NETWORK === 'mainnet-beta',
-          rpcFallbackDisclosed: env.SOLANA_NETWORK === 'devnet',
+          mainnetJitoLandingProven,
+          swqosStakedLaneActive: swqosConfigured,
+          rpcFallbackDisclosed,
         },
         evidence: {
           totalTransactions: txs.length,
@@ -178,7 +233,9 @@ async function bootstrap(): Promise<void> {
           failedOrAbandonedTransactions: failed.length,
           retriedTransactions: retried.length,
           completeLifecycleTransactions: completeLifecycle.length,
-          executionRecords: rpcFallback.length,
+          realJitoBundleLandings: jitoLandings,
+          jitoTipsLanded: tips.totalLanded,
+          directRpcExecutionRecords: directRpcRecords.length,
           aiDecisions: decisions.length,
         },
         stream: streamHealthMonitor.getHealthData(),
@@ -187,12 +244,8 @@ async function bootstrap(): Promise<void> {
           scheduleSize: leaderSchedule.getScheduleSize(),
           knownJitoValidators: jitoLeaderDetector.getValidatorCount(),
         },
-        tips: tipManager.getPerformanceMetrics(),
-        nextWork: [
-          'Run the same stack on a capped mainnet wallet to capture real Jito bundle IDs.',
-          'Publish the architecture document to a public URL before submission.',
-          'Export 10 fresh lifecycle rows after the final demo run.',
-        ],
+        tips,
+        nextWork,
       });
     } catch (err) {
       log.error({ err }, 'failed to compute readiness');
@@ -203,16 +256,17 @@ async function bootstrap(): Promise<void> {
   // ─── Transaction Submission API ──────────────────────────
   app.post('/api/v1/transactions', async (request, reply) => {
     try {
-      const { SystemProgram, PublicKey, Keypair } = await import('@solana/web3.js');
+      const { SystemProgram } = await import('@solana/web3.js');
       const { walletManager } = await import('./solana/wallet-manager.js');
       const { orchestrator } = await import('./orchestrator.js');
 
-      // Create a dummy transfer of 0.002 SOL to a random address (to exceed rent-exempt limit of 890,880 lamports)
-      const randomDest = Keypair.generate().publicKey;
+      // Self-transfer of 0.002 SOL: the funds return to the wallet, so a mainnet
+      // proof run costs only the base fee + Jito tip (~0.000015 SOL), never the
+      // transfer amount. Still a real, signed, on-chain transaction.
       const instruction = SystemProgram.transfer({
         fromPubkey: walletManager.publicKey,
-        toPubkey: randomDest,
-        lamports: 2000000, 
+        toPubkey: walletManager.publicKey,
+        lamports: 2000000,
       });
 
       const txId = await orchestrator.submitInstructions([instruction], {
@@ -234,16 +288,16 @@ async function bootstrap(): Promise<void> {
   // ─── Expired Blockhash Fault Submission API ───────────────
   app.post('/api/v1/transactions/expired', async (request, reply) => {
     try {
-      const { SystemProgram, PublicKey, Keypair } = await import('@solana/web3.js');
+      const { SystemProgram } = await import('@solana/web3.js');
       const { walletManager } = await import('./solana/wallet-manager.js');
       const { orchestrator } = await import('./orchestrator.js');
 
-      // Create a dummy transfer to a random address
-      const randomDest = Keypair.generate().publicKey;
+      // Self-transfer (funds return to the wallet) so the fault-injection proof
+      // costs only fee + tip on the successful retry, never the transfer amount.
       const instruction = SystemProgram.transfer({
         fromPubkey: walletManager.publicKey,
-        toPubkey: randomDest,
-        lamports: 2000000, 
+        toPubkey: walletManager.publicKey,
+        lamports: 2000000,
       });
 
       const txId = await orchestrator.submitInstructions([instruction], {

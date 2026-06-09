@@ -83,6 +83,7 @@ interface Readiness {
     devnetPrototype: boolean;
     mainnetJitoPathWired: boolean;
     mainnetJitoLandingProven: boolean;
+    swqosStakedLaneActive: boolean;
     rpcFallbackDisclosed: boolean;
   };
   evidence: {
@@ -91,7 +92,9 @@ interface Readiness {
     failedOrAbandonedTransactions: number;
     retriedTransactions: number;
     completeLifecycleTransactions: number;
-    executionRecords: number;
+    realJitoBundleLandings: number;
+    jitoTipsLanded: number;
+    directRpcExecutionRecords: number;
     aiDecisions: number;
   };
   stream: {
@@ -302,7 +305,13 @@ export default function Dashboard() {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-lg font-bold tracking-tight text-white">Solstice</h1>
-                  <Pill tone="amber">Devnet fallback lane</Pill>
+                  <Pill tone={readiness?.claims.mainnetJitoLandingProven ? 'emerald' : 'amber'}>
+                    {readiness?.mode === 'MAINNET_JITO_PROVEN'
+                      ? 'Mainnet · Jito proven'
+                      : readiness?.network === 'devnet'
+                        ? 'Devnet fallback lane'
+                        : 'Mainnet · path wired'}
+                  </Pill>
                   <Pill tone={connected ? 'emerald' : 'rose'}>{connected ? 'Live stream' : 'Reconnecting'}</Pill>
                 </div>
                 <p className="mt-0.5 text-xs text-zinc-400">
@@ -323,7 +332,7 @@ export default function Dashboard() {
                 </div>
               )}
               <ActionButton
-                onClick={() => submitTransaction('/api/v1/transactions', 'Standard Devnet transaction accepted.')}
+                onClick={() => submitTransaction('/api/v1/transactions', 'Standard transaction submitted to the orchestrator.')}
                 disabled={isSubmitting}
                 icon={isSubmitting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
               >
@@ -444,11 +453,15 @@ export default function Dashboard() {
                       <p className="text-sm font-semibold text-zinc-200">
                         {readiness?.claims.mainnetJitoLandingProven
                           ? 'Mainnet Jito proof captured'
-                          : 'Devnet fallback active & disclosed'}
+                          : readiness?.network === 'devnet'
+                            ? 'Devnet fallback active & disclosed'
+                            : 'Mainnet path wired · Jito landing not yet claimed'}
                       </p>
                       <p className="mt-1 max-w-2xl text-xs leading-5 text-zinc-500">
                         This run proves construction, lifecycle tracking, retry recovery, and telemetry. It does
-                        not pretend Devnet RPC fallback is a landed Jito bundle.
+                        not pretend an RPC fallback execution is a landed Jito bundle —{' '}
+                        <code className="text-zinc-400">mainnetJitoLandingProven</code> stays false until{' '}
+                        <code className="text-zinc-400">tips.totalLanded &gt; 0</code>.
                       </p>
                     </div>
                     <a
@@ -574,7 +587,7 @@ export default function Dashboard() {
               ) : transactions.length === 0 ? (
                 <EmptyLedger
                   onStart={() =>
-                    submitTransaction('/api/v1/transactions', 'Standard Devnet transaction accepted.')
+                    submitTransaction('/api/v1/transactions', 'Standard transaction submitted to the orchestrator.')
                   }
                 />
               ) : (
@@ -788,6 +801,7 @@ function ReadinessPanel({
     ['Devnet prototype', readiness?.claims.devnetPrototype],
     ['RPC fallback disclosed', readiness?.claims.rpcFallbackDisclosed],
     ['Mainnet Jito wired', readiness?.claims.mainnetJitoPathWired],
+    ['SWQoS staked lane active', readiness?.claims.swqosStakedLaneActive],
     ['Jito landing proven', readiness?.claims.mainnetJitoLandingProven],
   ] as const;
 
@@ -1070,7 +1084,7 @@ function TransactionRow({
                           {copied === tx.id ? 'Copied' : 'Copy'}
                         </button>
                         <a
-                          href={`https://explorer.solana.com/tx/${tx.signature}?cluster=devnet`}
+                          href={`https://explorer.solana.com/tx/${tx.signature}`}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 text-xs font-semibold text-emerald-300 transition-all duration-200 hover:bg-emerald-500/10 active:scale-[0.97]"
