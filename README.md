@@ -4,6 +4,8 @@
 
 Solstice is a production-grade transaction execution engine designed to maximize Solana transaction landing probability. It combines real-time slot and leader scheduling telemetry with Jito bundle submission, dynamic tip management, and an AI-driven autonomous retry engine.
 
+**🔗 Live dashboard: [solstice-delta.vercel.app](https://solstice-delta.vercel.app/)** — real-time slot clock, leader windows, bundle lifecycle, AI decision log, and the `/api/v1/readiness` posture, live from the running stack.
+
 ---
 
 ## Submission Posture
